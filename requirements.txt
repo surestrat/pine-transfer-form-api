@@ -3,3 +3,5 @@ pydantic
 uvicorn
 httpx
 pydantic[email]
+python-dotenv
+loguru
