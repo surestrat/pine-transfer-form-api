@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PINEAPPLE_API_URL=https://your-pineapple-api-url
+      - API_KEY=your-api-key
+      - API_SECRET=your-api-secret
+    # Uncomment the following for live code reload in development
+    # volumes:
+    #   - ./app:/app/app
