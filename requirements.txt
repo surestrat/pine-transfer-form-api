@@ -5,3 +5,5 @@ httpx
 pydantic[email]
 python-dotenv
 loguru
+gunicorn
+rich

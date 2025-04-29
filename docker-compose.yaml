@@ -5,9 +5,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - PINEAPPLE_API_URL=https://your-pineapple-api-url
-      - API_KEY=your-api-key
-      - API_SECRET=your-api-secret
+      - PINEAPPLE_API_URL=http://gw.pineapple.co.za/users/motor_lead
+      - API_KEY=z4Hq6gFA4oZ0k9s2SbVc1QNu
+      - API_SECRET=3PG2pO9Sryv2xZTQXdXj398JEhLUefsVteI5rKn6haeaQt72HtOjRSnLNX4tstoZ
     # Uncomment the following for live code reload in development
     # volumes:
     #   - ./app:/app/app

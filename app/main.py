@@ -1,15 +1,35 @@
 from fastapi import FastAPI
 from .routes.lead import router as lead_router
 
-# Add logging and dotenv
-from loguru import logger
 from dotenv import load_dotenv
+import os
+
+from rich.logging import RichHandler
+import logging
 
 load_dotenv()
-logger.add("logs/app.log", rotation="1 MB", retention="10 days", level="DEBUG")
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True)],
+)
+logger = logging.getLogger("pine-transfer-form-api")
+
+logger.debug("Loaded environment variables:")
+for k, v in os.environ.items():
+    if k in ["API_KEY", "API_SECRET"]:
+        logger.debug(f"{k}=***hidden***")
+    else:
+        logger.debug(f"{k}={v}")
+
+logger.info("Starting FastAPI application.")
+logger.debug("Registering routers...")
 
 app = FastAPI()
 
-logger.info("Starting FastAPI application.")
-
 app.include_router(lead_router)
+logger.debug("lead_router registered.")
