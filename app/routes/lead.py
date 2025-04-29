@@ -14,6 +14,14 @@ async def proxy_lead(payload: LeadPayload):
     API_URL = os.getenv("PINEAPPLE_API_URL", "")
     API_KEY = os.getenv("API_KEY", "")
     API_SECRET = os.getenv("API_SECRET", "")
+
+    if not API_URL or not API_KEY or not API_SECRET:
+        logger.error("Missing required environment variables for upstream API.")
+        raise HTTPException(
+            status_code=500,
+            detail="Server misconfiguration: missing upstream API credentials.",
+        )
+
     BEARER_TOKEN = f"KEY={API_KEY} SECRET={API_SECRET}"
 
     headers = {

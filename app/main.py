@@ -7,6 +7,9 @@ import os
 from rich.logging import RichHandler
 import logging
 
+from fastapi.responses import JSONResponse
+import httpx
+
 load_dotenv()
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -30,6 +33,30 @@ logger.info("Starting FastAPI application.")
 logger.debug("Registering routers...")
 
 app = FastAPI()
+
+
+@app.get("/health", tags=["health"])
+async def health():
+    return {"status": "ok"}
+
+
+@app.exception_handler(httpx.RequestError)
+async def httpx_request_error_handler(request, exc):
+    logger.error(f"HTTPX RequestError: {exc}")
+    return JSONResponse(
+        status_code=502,
+        content={"detail": "Bad gateway: Unable to connect to upstream service."},
+    )
+
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request, exc):
+    logger.exception("Unhandled exception occurred.")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error."},
+    )
+
 
 app.include_router(lead_router)
 logger.debug("lead_router registered.")
