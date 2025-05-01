@@ -1,26 +1,23 @@
-# Use official Python image
-FROM python:3.13-slim
+FROM python:3.14-slim
 
-# Set working directory
+# Set work directory
 WORKDIR /app
 
-# Install dependencies
+# Install system dependencies (if needed)
+RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app code
-COPY app ./app
+# Copy the rest of the code
+COPY . .
 
-# Expose port
+# Expose the port
 EXPOSE 4000
 
-# Add a non-root user for security
-RUN adduser --disabled-password --no-create-home appuser
-USER appuser
+# Set environment variables (optional, can be overridden in docker-compose)
+ENV PYTHONUNBUFFERED=1
 
-# Healthcheck (optional, for production)
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl --fail http://localhost:4000/docs || exit 1
-
-# Run the app with gunicorn for production
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "app.main:app", "--bind", "0.0.0.0:4000"]
+# Run the application
+CMD ["python", "run.py"]
