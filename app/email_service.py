@@ -5,6 +5,7 @@ import traceback
 import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from socket import timeout as socket_timeout
 
 logger = logging.getLogger("pine-api")
 
@@ -25,6 +26,9 @@ async def send_email(notification):
         smtp_port = int(os.getenv("SMTP_PORT") or os.getenv("SMTP_PORT", 465))
         smtp_username = os.getenv("SMTP_USERNAME") or os.getenv("SMTP_USER")
         smtp_password = os.getenv("SMTP_PASSWORD") or os.getenv("SMTP_PASS")
+        smtp_timeout = int(
+            os.getenv("SMTP_TIMEOUT", 30)
+        )  # Default timeout of 30 seconds
 
         if not smtp_username or not smtp_password:
             logger.error("SMTP credentials not found in environment variables")
@@ -35,11 +39,25 @@ async def send_email(notification):
         # Log the email subject and recipients for debugging
         logger.info(f"Email subject: {notification.subject}")
         logger.info(f"Recipients: {notification.recipients}")
-        # Connect to SMTP server
+
+        # Create a secure SSL context
         context = ssl.create_default_context()
+        # Verify mode for SSL (CERT_REQUIRED is the most secure option)
+        context.verify_mode = ssl.CERT_REQUIRED
+        # Check hostname to prevent man-in-the-middle attacks
+        context.check_hostname = True
+        # Load default CA certificates
+        context.load_default_certs(purpose=ssl.Purpose.SERVER_AUTH)
 
         try:
-            with smtplib.SMTP_SSL(smtp_server, smtp_port, context=context) as server:
+            with smtplib.SMTP_SSL(
+                host=smtp_server,
+                port=smtp_port,
+                local_hostname=None,
+                timeout=smtp_timeout,
+                context=context,
+                source_address=None,
+            ) as server:
                 # Attempt login
                 try:
                     server.login(smtp_username, smtp_password)
@@ -71,6 +89,21 @@ async def send_email(notification):
                     f"Email sending complete: {success_count}/{len(notification.recipients)} successful"
                 )
                 return success_count > 0
+        except socket_timeout as timeout_err:
+            logger.error(f"Connection timeout: {timeout_err}")
+            return False
+        except ssl.CertificateError as cert_err:
+            logger.error(f"Certificate verification failed: {cert_err}")
+            return False
+        except ssl.SSLError as ssl_err:
+            logger.error(f"SSL error: {ssl_err}")
+            return False
+        except smtplib.SMTPConnectError as conn_err:
+            logger.error(f"SMTP connection error: {conn_err}")
+            return False
+        except smtplib.SMTPServerDisconnected as disc_err:
+            logger.error(f"SMTP server disconnected: {disc_err}")
+            return False
         except smtplib.SMTPException as smtp_err:
             logger.error(f"SMTP error: {smtp_err}")
             return False
