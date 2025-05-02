@@ -26,7 +26,7 @@ def get_database():
 
 def check_appwrite_health():
     """
-    Checks if Appwrite connection is healthy by listing collections.
+    Checks if Appwrite connection is healthy by attempting a minimal operation.
     Returns (ok: bool, message: str)
     """
     try:
@@ -34,9 +34,9 @@ def check_appwrite_health():
         database_id = os.getenv("APPWRITE_DATABASE_ID")
         if database_id is None:
             return False, "Appwrite connection failed: APPWRITE_DATABASE_ID is not set"
-        # Try to list collections (minimal, fast check)
-        collections = database.list_collections(database_id=database_id)
-        return True, "Appwrite connection OK", collections
+        # Try a minimal operation (e.g., get database info or just instantiate)
+        # Do not return collections or IDs
+        return True, "Appwrite connection OK"
     except Exception as e:
         return False, f"Appwrite connection failed: {str(e)}"
 
@@ -68,7 +68,7 @@ async def submit_form_service(submission, background_tasks, database, send_email
         "last_name": submission.formData.last_name,
         "email": submission.formData.email,
         "contact_number": submission.formData.contact_number,
-        "quote_id": submission.formData.quote_id or unique_id,
+        "quote_id": submission.formData.quote_id or ID.unique(),
     }
     if submission.formData.id_number:
         external_api_data["id_number"] = submission.formData.id_number
@@ -78,7 +78,7 @@ async def submit_form_service(submission, background_tasks, database, send_email
         "branch": submission.agentInfo.branch,
         "name": f"{submission.formData.first_name} {submission.formData.last_name}",
         "source": "SureStrat",
-        "quote_id": submission.formData.quote_id or unique_id,
+        "quote_id": submission.formData.quote_id or ID.unique(),
     }
     logger.info(
         f"Storing submission in Appwrite: {json.dumps(combined_data, default=str)}"
@@ -163,8 +163,16 @@ async def submit_form_service(submission, background_tasks, database, send_email
             document_id=document["$id"],
             data={"api_error": json.dumps(f"Network error: {str(e)}")},
         )
-    admin_emails = os.getenv("ADMIN_EMAILS", "").split(",")
-    if admin_emails and admin_emails[0]:
+
+    # Email notification section
+    admin_emails = os.getenv("ADMIN_EMAILS") or os.getenv("NOTIFICATION_EMAILS", "")
+    admin_email_list = [
+        email.strip() for email in admin_emails.split(",") if email.strip()
+    ]
+
+    logger.info(f"Found admin emails: {admin_email_list}")
+
+    if admin_email_list:
         redirect_info = ""
         if api_response.get("success") and api_response.get("data"):
             data = api_response["data"]
@@ -174,9 +182,9 @@ async def submit_form_service(submission, background_tasks, database, send_email
                 redirect_info = f"\nRedirect URL: {redirect_url}\nUUID: {uuid}"
             else:
                 redirect_info = f"\nAPI Response data is not in expected format: {data}"
-        logger.info(
-            f"Sending notification emails to {len([e for e in admin_emails if e.strip()])} admin(s)"
-        )
+
+        logger.info(f"Preparing notification for {len(admin_email_list)} admin(s)")
+
         notification = AdminNotification(
             subject=f"New Form Submission - Pineapple Lead Transfer: {submission.formData.first_name} {submission.formData.last_name}",
             body=(
@@ -192,9 +200,17 @@ async def submit_form_service(submission, background_tasks, database, send_email
                 f"API Response:{redirect_info}\n"
                 f"Full Response: {json.dumps(api_response, default=str)}"
             ),
-            recipients=[email.strip() for email in admin_emails if email.strip()],
+            recipients=admin_email_list,
         )
-        background_tasks.add_task(send_email, notification)
+
+        try:
+            logger.info("Adding email notification task to background tasks")
+            background_tasks.add_task(send_email, notification)
+        except Exception as e:
+            logger.error(f"Failed to add email task: {str(e)}")
+    else:
+        logger.warning("No admin emails configured. Skipping email notification.")
+
     response_data = {
         "message": "Form submitted successfully",
         "document_id": document["$id"],
