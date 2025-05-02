@@ -1,5 +1,5 @@
-from typing import List, Optional
-from pydantic import BaseModel, EmailStr, Field
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, EmailStr, Field, HttpUrl
 
 
 class FormData(BaseModel):
@@ -27,7 +27,22 @@ class SubmissionData(BaseModel):
     agentInfo: AgentInfo
 
 
+class EmailAttachment(BaseModel):
+    path: str
+    filename: Optional[str] = None
+
+
 class AdminNotification(BaseModel):
     subject: str
     body: str
     recipients: List[EmailStr]
+    cc: Optional[List[EmailStr]] = []
+    bcc: Optional[List[EmailStr]] = []
+    html_body: Optional[str] = None
+    attachments: Optional[List[EmailAttachment]] = None
+
+
+class TestEmailRequest(BaseModel):
+    email: EmailStr = Field(
+        ..., description="Email address to send the test message to"
+    )
