@@ -20,12 +20,12 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler(), logging.FileHandler("api.log")],
 )
-logger = logging.getLogger("pine-api")
+logger = logging.getLogger("Pineapple-Surestrat-API-Intergration")
 
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="Pine API")
+app = FastAPI(title="Pineapple-Surestrat-API-Intergration")
 
 app.add_middleware(
     CORSMiddleware,
@@ -55,42 +55,6 @@ async def submit_form(
         logger.error(f"Error processing form submission: {error_detail}")
         logger.error(f"Stack trace: {stack_trace}")
         raise HTTPException(status_code=500, detail=error_detail)
-
-
-@app.get("/health")
-async def health_check():
-    """
-    Health check endpoint that verifies:
-    - Application is running
-    - Appwrite connection is healthy
-    """
-    try:
-        result = check_appwrite_health()
-        appwrite_ok = result[0]
-        appwrite_msg = result[1]
-        status = "healthy" if appwrite_ok else "degraded"
-
-        response = {
-            "status": status,
-            "appwrite": {
-                "ok": appwrite_ok,
-                "message": appwrite_msg,
-            },
-        }
-
-        # Add the optional metadata if available
-        if len(result) > 2:
-            response["appwrite"]["metadata"] = result[2]
-
-        return response
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "appwrite": {
-                "ok": False,
-                "message": str(e),
-            },
-        }
 
 
 @app.get("/ping")
@@ -134,9 +98,16 @@ async def test_email(
 
         # Create test message
         from app.schemas import AdminNotification
+        from app.template_utils import load_template, format_template
+        import datetime
 
         subject = "Test Email from Pine API"
+
+        # Create plain text version
         body = "This is a test email sent from the Pine API email testing endpoint."
+
+        # Use a simplified version of the notification template for the test
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         html_body = """
         <html>
           <head>
@@ -156,7 +127,7 @@ async def test_email(
           </body>
         </html>
         """.format(
-            timestamp=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            timestamp=timestamp
         )
 
         notification = AdminNotification(

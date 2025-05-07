@@ -7,6 +7,7 @@ from appwrite.services.databases import Databases
 from appwrite.id import ID
 from fastapi import HTTPException
 from .schemas import AdminNotification
+from app.template_utils import load_template, format_template
 
 logger = logging.getLogger("pine-api")
 
@@ -14,7 +15,6 @@ logger = logging.getLogger("pine-api")
 def get_appwrite_client():
     client = Client()
     client.set_endpoint(os.getenv("APPWRITE_ENDPOINT"))
-    client.set_project(os.getenv("APPWRITE_PROJECT_ID"))
     client.set_key(os.getenv("APPWRITE_API_KEY"))
     return client
 
@@ -188,19 +188,38 @@ async def submit_form_service(submission, background_tasks, database, send_email
         logger.info(f"Found BCC emails: {admin_bcc_list}")
 
     if admin_email_list:
-        redirect_info = ""
+        # Load and format the email template
+        notification_template = load_template("submission_notification.html")
+
+        # Prepare redirect section if available
+        redirect_section = ""
         if api_response.get("success") and api_response.get("data"):
             data = api_response["data"]
-            if isinstance(data, dict):
-                uuid = data.get("uuid", "Not provided")
-                redirect_url = data.get("redirect_url", "Not provided")
-                redirect_info = f"\nRedirect URL: {redirect_url}\nUUID: {uuid}"
-            else:
-                redirect_info = f"\nAPI Response data is not in expected format: {data}"
+            if isinstance(data, dict) and data.get("redirect_url"):
+                redirect_url = data.get("redirect_url")
+                redirect_section = f"""
+                <h2>Redirect Information</h2>
+                <div class="section">
+                  <div class="data-row"><span class="label">Redirect URL:</span> <a href="{redirect_url}">{redirect_url}</a></div>
+                </div>
+                """
 
-        logger.info(f"Preparing notification for {len(admin_email_list)} admin(s)")
+        # Format the template with submission data
+        html_body = format_template(
+            notification_template,
+            first_name=submission.formData.first_name,
+            last_name=submission.formData.last_name,
+            email=submission.formData.email,
+            contact_number=submission.formData.contact_number,
+            id_number=submission.formData.id_number or "Not provided",
+            quote_id=submission.formData.quote_id or unique_id,
+            agent=submission.agentInfo.agent,
+            branch=submission.agentInfo.branch,
+            api_response_json=json.dumps(api_response, indent=2, default=str),
+            redirect_section=redirect_section,
+        )
 
-        # Create plain text body
+        # Create plain text version
         plain_text_body = (
             f"Customer Information:\n"
             f"Name: {submission.formData.first_name} {submission.formData.last_name}\n"
@@ -211,63 +230,9 @@ async def submit_form_service(submission, background_tasks, database, send_email
             f"Agent Information:\n"
             f"Agent: {submission.agentInfo.agent}\n"
             f"Branch: {submission.agentInfo.branch}\n\n"
-            f"API Response:{redirect_info}\n"
+            f"API Response:\n"
             f"Full Response: {json.dumps(api_response, default=str)}"
         )
-
-        # Create HTML body
-        html_body = f"""
-        <html>
-          <head>
-            <style>
-              body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-              h2 {{ color: #0056b3; }}
-              .section {{ margin: 20px 0; padding: 15px; border-left: 4px solid #0056b3; background-color: #f8f9fa; }}
-              .data-row {{ margin: 8px 0; }}
-              .label {{ font-weight: bold; }}
-              pre {{ background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; }}
-            </style>
-          </head>
-          <body>
-            <h2>Customer Information</h2>
-            <div class="section">
-              <div class="data-row"><span class="label">Name:</span> {submission.formData.first_name} {submission.formData.last_name}</div>
-              <div class="data-row"><span class="label">Email:</span> {submission.formData.email}</div>
-              <div class="data-row"><span class="label">Contact Number:</span> {submission.formData.contact_number}</div>
-              <div class="data-row"><span class="label">ID Number:</span> {submission.formData.id_number or 'Not provided'}</div>
-              <div class="data-row"><span class="label">Quote ID:</span> {submission.formData.quote_id or unique_id}</div>
-            </div>
-            
-            <h2>Agent Information</h2>
-            <div class="section">
-              <div class="data-row"><span class="label">Agent:</span> {submission.agentInfo.agent}</div>
-              <div class="data-row"><span class="label">Branch:</span> {submission.agentInfo.branch}</div>
-            </div>
-        """
-
-        # Add redirect information if available
-        if api_response.get("success") and api_response.get("data"):
-            data = api_response["data"]
-            if isinstance(data, dict) and data.get("redirect_url"):
-                redirect_url = data.get("redirect_url", "Not provided")
-                uuid = data.get("uuid", "Not provided")
-                html_body += f"""
-                <h2>Redirect Information</h2>
-                <div class="section">
-                  <div class="data-row"><span class="label">Redirect URL:</span> <a href="{redirect_url}">{redirect_url}</a></div>
-                  <div class="data-row"><span class="label">UUID:</span> {uuid}</div>
-                </div>
-                """
-
-        # Add API response
-        html_body += f"""
-            <h2>API Response</h2>
-            <div class="section">
-              <pre>{json.dumps(api_response, default=str, indent=2)}</pre>
-            </div>
-          </body>
-        </html>
-        """
 
         notification = AdminNotification(
             subject=f"New Form Submission - Pineapple Lead Transfer: {submission.formData.first_name} {submission.formData.last_name}",

@@ -1,616 +1,386 @@
 import os
-import smtplib
 import logging
-import traceback
+import smtplib
 import ssl
-from email.mime.text import MIMEText
+import traceback
 from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email.utils import formatdate
-from email import encoders
-
-# Define COMMASPACE as it's no longer exported from email.utils
-COMMASPACE = ", "
-from socket import timeout as socket_timeout
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
+from typing import List, Optional, Union, Tuple
+import asyncio
+from dotenv import load_dotenv
 from pathlib import Path
-from typing import List, Optional, Union, Dict, Any, Tuple
 
+# Configure logging
 logger = logging.getLogger("pine-api")
+
+# Load environment variables
+load_dotenv()
 
 
 class MailSender:
     """
-    Contains email contents, connection settings and recipient settings.
-    Has functions to compose and send mail. MailSenders are tied to an SMTP server.
-
-    :param in_username: Username for mail server login (required)
-    :param in_password: Password for mail server login (required)
-    :param in_server: SMTP server to connect to as (server, port) tuple
-    :param use_SSL: Select whether to connect over SSL (True) or TLS (False)
+    Handles email sending via SMTP with support for HTML content and attachments.
     """
 
     def __init__(
-        self, in_username, in_password, in_server=None, use_SSL=True, timeout=30
+        self,
+        in_username: Optional[str] = None,
+        in_password: Optional[str] = None,
+        in_server: Optional[Union[str, Tuple[str, int]]] = None,
+        use_SSL: Optional[bool] = None,
+        use_mailgun: Optional[bool] = None,
+        timeout: Optional[int] = 30,
     ):
-        self.username = in_username
-        self.password = in_password
-
-        # Use provided server or get from environment
-        if in_server:
-            self.server_name = in_server[0]
-            self.server_port = in_server[1]
-        else:
-            self.server_name = os.getenv("SMTP_SERVER") or os.getenv("SMTP_HOST")
-            self.server_port = int(os.getenv("SMTP_PORT") or 465)
-
-        self.use_SSL = use_SSL
-        self.timeout = timeout
-        self.connected = False
-        self.recipients = []  # Initialize as list
-        self.cc_recipients = []
-        self.bcc_recipients = []
-        self.attachments = []
-        self.html_ready = False
-        self.msg = None
-
-    def __str__(self):
-        return (
-            f"Type: Mail Sender\n"
-            f"Connection to server {self.server_name}, port {self.server_port}\n"
-            f"Connected: {self.connected}\n"
-            f"Username: {self.username}, Password: {'*' * len(self.password)}"
+        # Set username
+        self.username = (
+            in_username or os.getenv("SMTP_USERNAME") or os.getenv("SMTP_USER")
         )
+
+        # Set password
+        self.password = (
+            in_password or os.getenv("SMTP_PASSWORD") or os.getenv("SMTP_PASS")
+        )
+
+        # Set server and port
+        if isinstance(in_server, tuple):
+            self.server, self.port = in_server
+        else:
+            self.server = (
+                in_server or os.getenv("SMTP_SERVER") or os.getenv("SMTP_HOST")
+            )
+            self.port = int(os.getenv("SMTP_PORT") or 465)
+
+        # Determine if we should use SSL vs STARTTLS based on port if not explicitly specified
+        if use_SSL is None:
+            # Common SSL ports: 465, 993
+            # Common STARTTLS ports: 587, 25, 2525
+            self.use_SSL = self.port in (465, 993)
+        else:
+            self.use_SSL = use_SSL
+
+        # Determine if we should use Mailgun-specific features
+        if use_mailgun is None:
+            self.use_mailgun = os.getenv("USE_MAILGUN", "false").lower() == "true" or (
+                self.server and "mailgun" in self.server.lower()
+            )
+        else:
+            self.use_mailgun = use_mailgun
+
+        # Connection timeout
+        self.timeout = timeout or int(os.getenv("SMTP_TIMEOUT") or 30)
+
+        # Initialize connection and message
+        self.connection = None
+        self.msg = None
+        self.to_list = []
+        self.cc_list = []
+        self.bcc_list = []
+        self.from_addr = ""
+
+        logger.info(f"MailSender initialized with server: {self.server}:{self.port}")
+        logger.info(
+            f"Using {'SSL' if self.use_SSL else 'STARTTLS'} for SMTP connection"
+        )
+        if self.use_mailgun:
+            logger.info("Using Mailgun-specific SMTP implementation")
 
     def set_message(
         self,
-        in_plaintext,
-        in_subject="",
-        in_from=None,
-        in_htmltext=None,
-        attachment=None,
-        filename=None,
+        in_plaintext: str,
+        in_subject: str,
+        in_from: str,
+        in_htmltext: Optional[str] = None,
     ):
-        """
-        Creates the MIME message to be sent by e-mail. Optionally allows adding subject,
-        'from' field, HTML content, and attachments.
-
-        :param in_plaintext: Plaintext email body (required as fallback)
-        :param in_subject: Subject line (optional)
-        :param in_from: Sender address (optional)
-        :param in_htmltext: HTML version of the email body (optional)
-        :param attachment: Path to attachment file (optional)
-        :param filename: Name for the attachment (optional)
-        """
-        # Set HTML flag
-        self.html_ready = in_htmltext is not None
-
-        # Create the message based on content type
-        if self.html_ready:
-            self.msg = MIMEMultipart("alternative")
-            self.msg.attach(MIMEText(in_plaintext, "plain"))
-            # Ensure in_htmltext is not None before attaching
-            if in_htmltext is not None:
-                self.msg.attach(MIMEText(in_htmltext, "html"))
-
-            # Add attachment if provided
-            if attachment:
-                part = MIMEBase("application", "octet-stream")
-                part.set_payload(open(attachment, "rb").read())
-                encoders.encode_base64(part)
-                part.add_header(
-                    "Content-Disposition",
-                    f"attachment; filename={filename or Path(attachment).name}",
-                )
-                self.msg.attach(part)
-        else:
-            self.msg = MIMEText(in_plaintext, "plain")
-
-        # Set headers
+        """Set the email message content"""
+        self.msg = MIMEMultipart("alternative")
         self.msg["Subject"] = in_subject
-        self.msg["From"] = in_from or self.username
-        self.msg["Date"] = formatdate(localtime=True)
+        self.from_addr = in_from
+        self.msg["From"] = in_from
 
-    def clear_message(self):
-        """Remove the whole email body."""
-        if self.msg is None:
-            logger.warning("Cannot clear message - message not initialized")
-            return
+        # Add plain text part
+        part1 = MIMEText(in_plaintext, "plain")
+        self.msg.attach(part1)
 
-        if self.html_ready:
-            # Create a new payload with empty content
-            self.msg.set_payload([MIMEText("", "plain"), MIMEText("", "html")])
-        else:
-            self.msg.set_payload("")
+        # Add HTML part if provided
+        if in_htmltext:
+            part2 = MIMEText(in_htmltext, "html")
+            self.msg.attach(part2)
 
-    def set_subject(self, in_subject):
-        """Set or update the email subject."""
-        if self.msg is None:
-            logger.warning("Cannot set subject - message not initialized")
-            return
+    def set_recipients(
+        self,
+        to_list: List[str],
+        cc_list: Optional[List[str]] = None,
+        bcc_list: Optional[List[str]] = None,
+    ):
+        """Set email recipients including CC and BCC"""
+        # Handle comma-separated email addresses in strings
+        self.to_list = []
+        if to_list:
+            for email in to_list:
+                # If an email contains a comma, it might be multiple addresses
+                if "," in email:
+                    # Split and strip each address
+                    self.to_list.extend(
+                        [e.strip() for e in email.split(",") if e.strip()]
+                    )
+                else:
+                    self.to_list.append(email.strip())
 
-        if hasattr(self.msg, "replace_header"):
-            self.msg.replace_header("Subject", in_subject)
-        else:
-            self.msg["Subject"] = in_subject
+        # Handle CC list
+        self.cc_list = []
+        if cc_list:
+            for email in cc_list:
+                if "," in email:
+                    self.cc_list.extend(
+                        [e.strip() for e in email.split(",") if e.strip()]
+                    )
+                else:
+                    self.cc_list.append(email.strip())
 
-    def set_from(self, in_from):
-        """Set or update the From field."""
-        if self.msg is None:
-            logger.warning("Cannot set from - message not initialized")
-            return
+        # Handle BCC list
+        self.bcc_list = []
+        if bcc_list:
+            for email in bcc_list:
+                if "," in email:
+                    self.bcc_list.extend(
+                        [e.strip() for e in email.split(",") if e.strip()]
+                    )
+                else:
+                    self.bcc_list.append(email.strip())
 
-        if hasattr(self.msg, "replace_header"):
-            self.msg.replace_header("From", in_from)
-        else:
-            self.msg["From"] = in_from
+        # Set headers (for display purposes)
+        if self.msg and self.to_list:
+            self.msg["To"] = ", ".join(self.to_list)
 
-    def set_plaintext(self, in_body_text):
-        """
-        Set plaintext message: replaces entire payload if no html is used,
-        otherwise replaces the plaintext only.
+        if self.msg and self.cc_list:
+            self.msg["Cc"] = ", ".join(self.cc_list)
 
-        :param in_body_text: Plaintext email body
-        """
-        if self.msg is None:
-            logger.warning("Cannot set plaintext - message not initialized")
-            return
+        # BCC is not added to headers but used during sending
 
-        if not self.html_ready:
-            self.msg.set_payload(in_body_text)
-        else:
-            # Get the current payload
-            payload = self.msg.get_payload()
+        logger.info(
+            f"Recipients set - To: {self.to_list}, CC: {self.cc_list}, BCC: {self.bcc_list}"
+        )
 
-            # Create a new plaintext part
-            plaintext_part = MIMEText(in_body_text, "plain")
-
-            # If payload is a list, replace the first item
-            if isinstance(payload, list) and len(payload) > 0:
-                # Clear existing payload
-                self.msg.set_payload([])
-                # Attach the new plaintext part
-                self.msg.attach(plaintext_part)
-                # Re-attach the remaining parts
-                for part in payload[1:]:
-                    self.msg.attach(part)
-            else:
-                # If not a list, recreate the multipart structure
-                html_part = MIMEText("", "html")  # Empty HTML part as fallback
-                self.msg.set_payload([])
-                self.msg.attach(plaintext_part)
-                self.msg.attach(html_part)
-
-    def set_html(self, in_html):
-        """
-        Replace HTML version of the email body. The plaintext version is unaffected.
-
-        :param in_html: HTML email body
-        """
-        if self.msg is None:
-            logger.warning("Cannot set HTML - message not initialized")
-            return
-
-        if not self.html_ready:
-            logger.warning(
-                "Attempting to set HTML content for a plain text message. "
-                "Use set_message with in_htmltext parameter first."
-            )
-            # Convert to multipart/alternative
-            if self.msg is None:
-                plaintext = ""
-                self.msg = MIMEMultipart("alternative")
-                self.msg.attach(MIMEText(plaintext, "plain"))
-            else:
-                plaintext = str(self.msg.get_payload())
-                self.msg = MIMEMultipart("alternative")
-                self.msg.attach(MIMEText(plaintext, "plain"))
-            self.msg.attach(MIMEText(in_html, "html"))
-            self.html_ready = True
-        else:
-            payload = self.msg.get_payload()
-            if isinstance(payload, list) and len(payload) > 1:
-                # Replace the HTML part in the payload list
-                html_part = MIMEText(in_html, "html")
-                payload[1] = html_part
-                self.msg.set_payload(payload)
-            else:
-                # If payload is not a list or doesn't have enough elements, recreate the structure
-                plaintext = ""
-                if isinstance(payload, list) and len(payload) > 0:
-                    # Safely extract plaintext content
-                    try:
-                        # Check if the payload is a MIMEText or similar object with get_payload method
-                        if hasattr(payload[0], "get_payload"):
-                            # Make sure it's not None and has the get_payload method
-                            if isinstance(
-                                payload[0], (MIMEText, MIMEMultipart)
-                            ) and callable(getattr(payload[0], "get_payload", None)):
-                                plaintext_content = payload[0].get_payload()
-                                if plaintext_content is not None:
-                                    # Handle both string and list payloads
-                                    if isinstance(plaintext_content, str):
-                                        plaintext = plaintext_content
-                                    else:
-                                        plaintext = str(plaintext_content)
-                            else:
-                                plaintext = str(payload[0])
-                        else:
-                            # If it's not a MIME object with get_payload, convert to string
-                            plaintext = str(payload[0])
-                    except (AttributeError, IndexError, TypeError) as e:
-                        logger.warning(f"Error extracting plaintext content: {e}")
-                        plaintext = ""
-                elif isinstance(payload, str):
-                    plaintext = payload
-
-                # Ensure plaintext is a string
-                if not isinstance(plaintext, str):
-                    plaintext = str(plaintext)
-
-                # Clear and rebuild the multipart structure
-                self.msg.set_payload([])
-                self.msg.attach(MIMEText(plaintext, "plain"))
-                self.msg.attach(MIMEText(in_html, "html"))
-
-    def add_attachment(self, attachment_path, custom_filename=None):
-        """
-        Add a file attachment to the email.
-
-        :param attachment_path: Path to the file to attach
-        :param custom_filename: Custom filename to use (optional)
-        """
+    def add_attachment(self, file_path: str, filename: Optional[str] = None):
+        """Add a file attachment to the email"""
         if not self.msg:
             logger.error("Cannot add attachment - message not initialized")
-            return
+            return False
 
         try:
-            # Ensure we have a multipart message
-            if not self.html_ready and not isinstance(self.msg, MIMEMultipart):
-                # Convert simple message to multipart
-                content = self.msg.get_payload()
-                content_type = self.msg.get_content_type()
-                headers = dict(self.msg.items())
+            with open(file_path, "rb") as f:
+                part = MIMEApplication(f.read())
 
-                self.msg = MIMEMultipart("mixed")
+            # Set content disposition with filename
+            attachment_filename = filename or Path(file_path).name
+            part.add_header(
+                "Content-Disposition", f"attachment; filename={attachment_filename}"
+            )
 
-                # Restore headers
-                for key, value in headers.items():
-                    if key not in ["Content-Type", "Content-Transfer-Encoding"]:
-                        self.msg[key] = value
-
-                # Add the original content - ensure content is a string
-                if not isinstance(content, str):
-                    content = str(content)
-                self.msg.attach(MIMEText(content, content_type.split("/")[1]))
-
-            # Create attachment part
-            part = MIMEBase("application", "octet-stream")
-
-            with open(attachment_path, "rb") as file:
-                part.set_payload(file.read())
-
-            encoders.encode_base64(part)
-            filename = custom_filename or Path(attachment_path).name
-            part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
             self.msg.attach(part)
-            logger.info(f"Added attachment: {filename}")
-
+            return True
         except Exception as e:
-            logger.error(f"Failed to add attachment {attachment_path}: {str(e)}")
+            logger.error(f"Failed to add attachment {file_path}: {str(e)}")
+            return False
 
-    def set_recipients(self, in_recipients):
-        """
-        Sets the list of recipient email addresses.
-
-        :param in_recipients: List of recipient email addresses
-        """
-        if not isinstance(in_recipients, (list, tuple)):
-            raise TypeError(
-                f"Recipients must be a list or tuple, is {type(in_recipients)}"
-            )
-
-        # Always store as a list to ensure we can append
-        self.recipients = list(in_recipients)
-        if self.msg:
-            if len(in_recipients) > 0:
-                self.msg["To"] = COMMASPACE.join(in_recipients)
-
-    def set_cc(self, cc_recipients):
-        """
-        Sets the list of CC recipient email addresses.
-
-        :param cc_recipients: List of CC recipient email addresses
-        """
-        if not isinstance(cc_recipients, (list, tuple)):
-            raise TypeError(
-                f"CC recipients must be a list or tuple, is {type(cc_recipients)}"
-            )
-
-        self.cc_recipients = cc_recipients
-        if self.msg and len(cc_recipients) > 0:
-            self.msg["Cc"] = COMMASPACE.join(cc_recipients)
-
-    def set_bcc(self, bcc_recipients):
-        """
-        Sets the list of BCC recipient email addresses.
-
-        :param bcc_recipients: List of BCC recipient email addresses
-        """
-        if not isinstance(bcc_recipients, (list, tuple)):
-            raise TypeError(
-                f"BCC recipients must be a list or tuple, is {type(bcc_recipients)}"
-            )
-
-        # Convert to list to ensure we can append later
-        self.bcc_recipients = list(bcc_recipients)
-        if self.msg and len(bcc_recipients) > 0:
-            self.msg["Bcc"] = COMMASPACE.join(bcc_recipients)
-
-    def add_recipient(self, in_recipient):
-        """
-        Adds a recipient to the list.
-
-        :param in_recipient: Recipient email address
-        """
-        # Ensure recipients is a list before appending
-        if not isinstance(self.recipients, list):
-            self.recipients = list(self.recipients)
-
-        self.recipients.append(in_recipient)
-        if self.msg:
-            if "To" in self.msg:
-                if hasattr(self.msg, "replace_header"):
-                    self.msg.replace_header("To", COMMASPACE.join(self.recipients))
-                else:
-                    self.msg["To"] = COMMASPACE.join(self.recipients)
-            else:
-                self.msg["To"] = COMMASPACE.join(self.recipients)
-
-    def add_cc(self, cc_recipient):
-        """
-        Adds a CC recipient to the list.
-
-        :param cc_recipient: CC recipient email address
-        """
-        # Ensure cc_recipients is a list before appending
-        if not isinstance(self.cc_recipients, list):
-            self.cc_recipients = list(self.cc_recipients)
-
-        self.cc_recipients.append(cc_recipient)
-        if self.msg:
-            if "Cc" in self.msg:
-                if hasattr(self.msg, "replace_header"):
-                    self.msg.replace_header("Cc", COMMASPACE.join(self.cc_recipients))
-                else:
-                    self.msg["Cc"] = COMMASPACE.join(self.cc_recipients)
-            else:
-                self.msg["Cc"] = COMMASPACE.join(self.cc_recipients)
-
-    def add_bcc(self, bcc_recipient):
-        """
-        Adds a BCC recipient to the list.
-
-        :param bcc_recipient: BCC recipient email address
-        """
-        self.bcc_recipients.append(bcc_recipient)
-        # BCC is not added to headers as it should not be visible in the message
-
-    def connect(self):
-        """
-        Connects to SMTP server using the username and password.
-        Must be called before sending messages.
-        """
+    def connect(self) -> bool:
+        """Establish connection to the SMTP server"""
         try:
-            # Create SSL context if using SSL
-            context = None
+            if not self.server:
+                logger.error("SMTP server address is not defined")
+                return False
+
+            logger.info(
+                f"Connecting to SMTP server {self.server}:{self.port} (SSL: {self.use_SSL})"
+            )
+
             if self.use_SSL:
+                # Use SSL connection (usually port 465)
                 context = ssl.create_default_context()
-
-            # Ensure server_name is not None
-            if not self.server_name:
-                raise ValueError("SMTP server name cannot be None")
-
-            # Create the appropriate server connection
-            if self.use_SSL:
-                self.smtpserver = smtplib.SMTP_SSL(
-                    host=self.server_name,
-                    port=self.server_port,
+                self.connection = smtplib.SMTP_SSL(
+                    host=self.server,
+                    port=self.port,
                     timeout=self.timeout,
                     context=context,
                 )
             else:
-                self.smtpserver = smtplib.SMTP(
-                    host=self.server_name, port=self.server_port, timeout=self.timeout
+                # Use STARTTLS connection (usually port 587, 25, 2525)
+                self.connection = smtplib.SMTP(
+                    host=self.server, port=self.port, timeout=self.timeout
                 )
-                self.smtpserver.starttls(context=context)
+                logger.info("Initiating STARTTLS connection")
+                self.connection.ehlo()
+                if self.connection.has_extn("STARTTLS"):
+                    self.connection.starttls()
+                    self.connection.ehlo()
+                else:
+                    logger.warning(
+                        "Server does not support STARTTLS, proceeding with unencrypted connection"
+                    )
 
-            # Login to the server
-            self.smtpserver.login(self.username, self.password)
-            self.connected = True
-            logger.info(f"Connected to {self.server_name}")
+            logger.info(f"Logging in with username: {self.username}")
+            if self.username is None or self.password is None:
+                logger.error("SMTP username or password is None")
+                return False
+            self.connection.login(self.username, self.password)
+            logger.info(f"Connected to SMTP server {self.server}:{self.port}")
             return True
 
-        except ssl.SSLError as ssl_err:
-            logger.error(f"SSL error when connecting: {ssl_err}")
-            return False
-        except smtplib.SMTPAuthenticationError as auth_err:
-            logger.error(f"SMTP authentication failed: {auth_err}")
-            return False
         except Exception as e:
             logger.error(f"Failed to connect to SMTP server: {str(e)}")
+            self.connection = None
             return False
 
-    def disconnect(self):
-        """Close the connection to the SMTP server."""
-        if self.connected:
-            try:
-                self.smtpserver.quit()
-                self.connected = False
-                logger.info("Disconnected from SMTP server")
-            except Exception as e:
-                logger.error(f"Error disconnecting from SMTP server: {str(e)}")
-
-    def send_all(self, close_connection=True):
+    def send_all(self, close_connection: bool = True) -> int:
         """
-        Sends message to all specified recipients, one at a time.
+        Send emails to all recipients
 
-        :param close_connection: Whether to close the connection after sending
-        :return: Number of successfully sent emails
+        Returns:
+            int: Number of successful sends
         """
-        if not self.connected:
-            raise ConnectionError("Not connected to any server. Try connect() first")
+        if not self.connection:
+            if not self.connect():
+                return 0
 
         if not self.msg:
-            raise ValueError("No message set. Try set_message() first")
-
-        if not self.recipients:
-            raise ValueError("No recipients set. Try set_recipients() first")
-
-        logger.info(f"Sending to {len(self.recipients)} recipients")
+            logger.error("No message configured to send")
+            return 0
 
         success_count = 0
-        for recipient in self.recipients:
-            try:
-                # Create a copy of the message for each recipient
-                message_copy = self.msg
-                if hasattr(message_copy, "replace_header"):
-                    message_copy.replace_header("To", recipient)
-                else:
-                    message_copy["To"] = recipient
+        all_recipients = self.to_list + self.cc_list + self.bcc_list
 
-                # Determine all recipients for SMTP send
-                all_recipients = (
-                    [recipient] + list(self.cc_recipients) + list(self.bcc_recipients)
-                )
+        if not all_recipients:
+            logger.warning("No recipients specified for email")
+            return 0
 
-                # Send the message
-                self.smtpserver.send_message(
-                    message_copy,
-                    from_addr=message_copy["From"],
-                    to_addrs=all_recipients,
-                )
-                logger.info(f"Email sent successfully to {recipient}")
-                success_count += 1
+        try:
+            # Double-check connection is not None before sending
+            if not self.connection:
+                logger.error("Connection is None, cannot send message")
+                return 0
 
-            except Exception as e:
-                logger.error(f"Failed to send email to {recipient}: {str(e)}")
+            logger.info(f"Sending email to {len(all_recipients)} recipients")
+            self.connection.send_message(
+                self.msg, from_addr=self.from_addr, to_addrs=all_recipients
+            )
+            logger.info(f"Email sent successfully to {len(all_recipients)} recipients")
+            success_count = len(all_recipients)
 
-        logger.info(
-            f"Email sending complete: {success_count}/{len(self.recipients)} successful"
-        )
+        except smtplib.SMTPRecipientsRefused as e:
+            # This specific exception has a 'recipients' attribute
+            error_msg = str(e)
+            logger.error(f"Failed to send email - recipients refused: {error_msg}")
+            logger.error(f"Problem recipients: {e.recipients}")
+            print(f"Failed to send email: {error_msg}")
 
-        if close_connection:
-            self.disconnect()
+        except smtplib.SMTPException as e:
+            error_msg = str(e)
+            logger.error(f"SMTP error when sending email: {error_msg}")
+            print(f"SMTP error: {error_msg}")
+
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"General error when sending email: {error_msg}")
+            print(f"Failed to send email: {error_msg}")
+
+        finally:
+            if close_connection and self.connection:
+                try:
+                    self.connection.quit()
+                    self.connection = None
+                except Exception:
+                    pass
 
         return success_count
 
 
-async def send_email(notification):
+async def send_email_async(notification):
     """
-    Send an email notification to recipients using the MailSender class.
-
-    Args:
-        notification: Email notification object with subject, body, recipients
-                     and optional html_body, cc, bcc, attachments
-
-    Returns:
-        bool: True if at least one email was sent successfully, False otherwise
+    Send email asynchronously
     """
     try:
-        # Extract email settings from environment
+        return _send_email_with_smtp(notification)
+    except Exception as e:
+        logger.error(f"Error sending email: {str(e)}")
+        raise
+
+
+def _send_email_with_smtp(notification):
+    """Send email using SMTP"""
+    try:
         smtp_username = os.getenv("SMTP_USERNAME") or os.getenv("SMTP_USER")
         smtp_password = os.getenv("SMTP_PASSWORD") or os.getenv("SMTP_PASS")
         smtp_server = os.getenv("SMTP_SERVER") or os.getenv("SMTP_HOST")
         smtp_port = int(os.getenv("SMTP_PORT") or 465)
-        smtp_timeout = int(os.getenv("SMTP_TIMEOUT", 30))
+        use_mailgun = os.getenv("USE_MAILGUN", "false").lower() == "true"
 
-        # Create recipients list
-        recipients_count = len(notification.recipients)
-        cc_count = (
-            len(notification.cc)
-            if hasattr(notification, "cc") and notification.cc
-            else 0
-        )
-        bcc_count = (
-            len(notification.bcc)
-            if hasattr(notification, "bcc") and notification.bcc
-            else 0
-        )
-
+        # Determine if we should use SSL based on port
+        use_ssl = smtp_port in (465, 993)
         logger.info(
-            f"Preparing to send email notification to {recipients_count} recipients, "
-            f"{cc_count} CC recipients, and {bcc_count} BCC recipients"
+            f"Sending email via {'SSL' if use_ssl else 'STARTTLS'} on port {smtp_port}"
         )
 
-        # Check for required settings
-        if not smtp_server or not smtp_username or not smtp_password:
-            logger.error(
-                "SMTP settings not configured properly in environment variables"
-            )
-            return False
+        # Only create the server tuple if smtp_server is not None
+        server_param = (smtp_server, smtp_port) if smtp_server else None
 
-        # Create and configure mail sender
-        mail_sender = MailSender(
+        sender = MailSender(
             in_username=smtp_username,
             in_password=smtp_password,
-            in_server=(smtp_server, smtp_port),
-            use_SSL=True,
-            timeout=smtp_timeout,
+            in_server=server_param,
+            use_SSL=use_ssl,  # Use port-based SSL detection instead of hardcoded True
+            use_mailgun=use_mailgun,
         )
 
-        # Set message content
-        html_body = getattr(notification, "html_body", None)
-
-        # Log the email content for debugging (only in development)
-        logger.debug(f"Email plain text content: {notification.body[:100]}...")
-        if html_body:
-            logger.debug(f"Email HTML content preview: {html_body[:100]}...")
-
-        # Create the email message
-        mail_sender.set_message(
+        # Set the message content
+        sender.set_message(
             in_plaintext=notification.body,
             in_subject=notification.subject,
-            in_htmltext=html_body,
+            in_from=f"Pine API <{smtp_username}>",
+            in_htmltext=notification.html_body if notification.html_body else None,
         )
 
         # Set recipients
-        mail_sender.set_recipients(notification.recipients)
+        sender.set_recipients(
+            to_list=notification.recipients,
+            cc_list=notification.cc if hasattr(notification, "cc") else None,
+            bcc_list=notification.bcc if hasattr(notification, "bcc") else None,
+        )
 
-        # Set CC and BCC if available
-        if hasattr(notification, "cc") and notification.cc:
-            mail_sender.set_cc(notification.cc)
-
-        if hasattr(notification, "bcc") and notification.bcc:
-            mail_sender.set_bcc(notification.bcc)
-
-        # Add attachments if available
+        # Add attachments if any
         if hasattr(notification, "attachments") and notification.attachments:
             for attachment in notification.attachments:
-                if isinstance(attachment, dict):
-                    path = attachment.get("path")
-                    filename = attachment.get("filename")
-                else:
-                    # Handle Pydantic model objects
-                    path = attachment.path
-                    filename = attachment.filename
+                sender.add_attachment(
+                    file_path=attachment.path, filename=attachment.filename
+                )
 
-                if path and os.path.exists(path):
-                    mail_sender.add_attachment(path, filename)
-                else:
-                    logger.warning(f"Attachment not found at path: {path}")
-
-        # Connect to the server
-        logger.info(f"Attempting to connect to SMTP server: {smtp_server}:{smtp_port}")
-        if mail_sender.connect():
-            # Send emails
-            logger.info("SMTP connection successful, sending emails")
-            success_count = mail_sender.send_all(close_connection=True)
-            return success_count > 0
+        # Connect and send
+        if sender.connect():
+            success_count = sender.send_all(close_connection=True)
+            if success_count > 0:
+                logger.info(f"Email sent successfully to {success_count} recipients")
+                return True
+            else:
+                logger.error("Failed to send email to any recipient")
+                return False
         else:
             logger.error("Failed to connect to SMTP server")
             return False
 
     except Exception as e:
-        logger.error(f"Unexpected error in send_email: {str(e)}")
-        logger.error(traceback.format_exc())
-        return False
+        logger.error(f"Error in _send_email_with_smtp: {str(e)}")
+        # Add stack trace for better debugging
+        logger.error(f"Stack trace: {traceback.format_exc()}")
+        raise
+
+
+def send_email(notification):
+    """
+    Synchronous function to send emails that can be called from background tasks
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(send_email_async(notification))
+    finally:
+        loop.close()
