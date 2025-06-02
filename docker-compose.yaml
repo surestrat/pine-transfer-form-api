@@ -1,25 +1,13 @@
-version: '3.8'
+version: "3.9"
 
 services:
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: pineapple-surestrat-api
-    restart: unless-stopped
+  surestrat-pineapple-api:
+    build: .
+    container_name: surestrat-pineapple-api
     ports:
       - "4000:4000"
-    volumes:
-      - .:/app
-      - ./templates:/app/templates
     env_file:
       - .env
-    environment:
-      - PORT=4000
-      - LOG_LEVEL=info
-    networks:
-      - surestrat-network
-
-networks:
-  surestrat-network:
-    driver: bridge
+    volumes:
+      - .:/app
+    restart: unless-stopped
