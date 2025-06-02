@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quote Request Notification</title>
+</head>
+<body bgcolor="#f8f9fa" style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif;">
+    <!-- Main wrapper table -->
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#f8f9fa">
+        <tr>
+            <td align="center" style="padding: 20px;">
+                <!-- Email container -->
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 5px;">
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" bgcolor="#005baa" style="padding: 20px; color: #ffffff; border-top-left-radius: 5px; border-top-right-radius: 5px;">
+                            <h2 style="margin: 0; font-size: 22px; font-weight: bold;">
+                                🚗 New Quote Request Notification
+                            </h2>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 20px;">
+                            <!-- Request Overview -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 5px;">
+                                <tr>
+                                    <td bgcolor="#1c4c96" style="color: #ffffff; padding: 10px 15px; font-weight: bold; border-top-left-radius: 5px; border-top-right-radius: 5px;">
+                                        Request Overview
+                                        <span style="float: right; background-color: #00c2ff; padding: 2px 8px; border-radius: 3px; font-size: 12px;">{{ quote.source }}</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 15px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Reference ID:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ quote.externalReferenceId }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; font-weight: bold;">Timestamp:</td>
+                                                <td width="70%" style="padding: 5px 0;">{{ now.strftime("%Y-%m-%d %H:%M:%S") if now else "N/A" }}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            {% for vehicle in quote.vehicles %}
+                            <!-- Vehicle Information -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 5px;">
+                                <tr>
+                                    <td bgcolor="#1c4c96" style="color: #ffffff; padding: 10px 15px; font-weight: bold; border-top-left-radius: 5px; border-top-right-radius: 5px;">
+                                        Vehicle Information 🚘
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 15px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Make & Model:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">MM Code:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.mmCode or "N/A" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Value:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">Retail: R{{ "{:,}".format(vehicle.retailValue) if vehicle.retailValue else "N/A" }} | Market: R{{ "{:,}".format(vehicle.marketValue) if vehicle.marketValue else "N/A" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Cover Type:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.coverCode or "N/A" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; font-weight: bold;">Use Type:</td>
+                                                <td width="70%" style="padding: 5px 0;">{{ vehicle.useType or "N/A" }}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Regular Driver -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 5px;">
+                                <tr>
+                                    <td bgcolor="#1c4c96" style="color: #ffffff; padding: 10px 15px; font-weight: bold; border-top-left-radius: 5px; border-top-right-radius: 5px;">
+                                        Regular Driver 👤
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 15px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Contact:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.regularDriver.emailAddress or "N/A" }} | {{ vehicle.regularDriver.mobileNumber or "N/A" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">ID Number:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.regularDriver.idNumber or "N/A" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Status:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.regularDriver.maritalStatus }} | {{ "Insured" if vehicle.regularDriver.currentlyInsured else "Uninsured" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Born:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.regularDriver.dateOfBirth or "N/A" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; font-weight: bold;">Claims Free:</td>
+                                                <td width="70%" style="padding: 5px 0;">{{ vehicle.regularDriver.yearsWithoutClaims }} years</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Address Information -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 5px;">
+                                <tr>
+                                    <td bgcolor="#1c4c96" style="color: #ffffff; padding: 10px 15px; font-weight: bold; border-top-left-radius: 5px; border-top-right-radius: 5px;">
+                                        Address Information 📍
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 15px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Street:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.address.addressLine }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Location:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.address.suburb }}, {{ vehicle.address.postalCode }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; font-weight: bold;">Parking:</td>
+                                                <td width="70%" style="padding: 5px 0;">{{ vehicle.overnightParkingSituation or "N/A" }}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endfor %}
+
+                            <p style="color: #6c757d; margin-top: 20px;">This notification was automatically generated by the Surestrat API system. Please do not reply to this email.</p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td bgcolor="#f8f9fa" style="padding: 15px; color: #6c757d; font-size: 12px; text-align: center; border-top: 1px solid #dee2e6;">
+                            &copy; {{ now.year if now else "2025" }} Surestrat. All rights reserved.
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

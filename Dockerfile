@@ -1,23 +1,28 @@
-FROM python:3.12-slim
+FROM python:3.13-slim
 
-# Set work directory
 WORKDIR /app
 
-# Install system dependencies (if needed)
-RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/lists/*
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=off \
+    PIP_DISABLE_PIP_VERSION_CHECK=on
 
-# Copy requirements and install
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the code
+# Copy project files
 COPY . .
 
-# Expose the port
+# Expose port
 EXPOSE 4000
 
-# Set environment variables (optional, can be overridden in docker-compose)
-ENV PYTHONUNBUFFERED=1
-
-# Run the application
-CMD ["python", "run.py"]
+# Start the application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "4000"]

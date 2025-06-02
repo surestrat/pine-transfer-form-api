@@ -1,160 +1,143 @@
-# Pine API
+# Surestrat Pineapple Integration API
 
-A FastAPI application that receives form data, integrates with Appwrite for storage, communicates with an external API, and sends email notifications.
+This API service provides integration between Surestrat and Pineapple Insurance, enabling quote requests and lead transfers with email notifications.
 
 ## Features
 
-- Accepts form data submissions
-- Stores data in Appwrite database
-- Communicates with external API services with bearer token authentication
-- Sends email notifications to administrators
-- CORS middleware to allow specific origins
+- Quote request handling with Pineapple API integration
+- Lead transfer to Pineapple with confirmation
+- Email notifications for quotes and transfers
+- Data storage using Appwrite
+- Containerized deployment with Docker
 
-## External API Integration
+## Requirements
 
-The application integrates with the Pineapple Motor Lead API:
+- Python 3.10+
+- Docker and Docker Compose (for containerized deployment)
+- Appwrite instance
+- SMTP server access for email notifications
+- Pineapple API credentials
 
-```
-Endpoint: POST http://gw-test.pineapple.co.za/users/motor_lead
-```
+## Environment Variables
 
-### API Request Format
-
-```json
-{
-	"source": "SureStrat",
-	"first_name": "Peter",
-	"last_name": "Smith",
-	"email": "PeterSmith007@gmail.com",
-	"id_number": "9510025800086",
-	"quote_id": "679765d8cdfba62ff342d2ef",
-	"contact_number": "0737111119"
-}
-```
-
-### API Response Format
-
-```json
-{
-	"success": true,
-	"data": {
-		"uuid": "66e1894aa137e938de5a76c5",
-		"redirect_url": "https://test-pineapple-claims.herokuapp.com/car-insurance/get-started?uuid=66e1894aa137e938de5a76c5&ref=serithi"
-	}
-}
-```
-
-The application stores both the UUID and redirect URL from the API response in the Appwrite database.
-
-## Setup
-
-1. Install the required dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-2. Create a `.env` file in the root directory with the following variables:
+Create a `.env` file in the project root with the following variables:
 
 ```
-# Appwrite Configuration
-APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+# Application Settings
+IS_PRODUCTION=false
+PORT=4001
+LOG_LEVEL=info
+DEBUG=false
+
+# Email Settings
+SMTP_SERVER=smtp.example.com
+SMTP_PORT=465
+SMTP_USERNAME=your_username@example.com
+SMTP_PASSWORD=your_password
+EMAIL_FROM=noreply@yourdomain.com
+ADMIN_EMAILS=admin1@example.com,admin2@example.com
+
+# Appwrite Settings
+APPWRITE_ENDPOINT=https://appwrite.yourdomain.com/v1
 APPWRITE_PROJECT_ID=your_project_id
 APPWRITE_API_KEY=your_api_key
-APPWRITE_DATABASE_ID=your_database_id
-APPWRITE_COLLECTION_ID=your_collection_id
+DATABASE_ID=your_database_id
+TRANSFER_COL_ID=your_transfer_collection_id
+QUOTE_COL_ID=your_quote_collection_id
 
-# CORS Configuration
-ALLOWED_ORIGIN=https://yourdomain.com
-
-# Email Configuration
-SMTP_SERVER=your_cpanel_smtp_server
-SMTP_PORT=465
-SMTP_USERNAME=your_email@yourdomain.com
-SMTP_PASSWORD=your_email_password
-ADMIN_EMAILS=admin1@yourdomain.com,admin2@yourdomain.com
-
-# External API
-EXTERNAL_API_URL=http://gw-test.pineapple.co.za/users/motor_lead
-EXTERNAL_API_KEY=your_api_key
-EXTERNAL_API_SECRET=your_api_secret
+# Pineapple API Settings
+PINEAPPLE_API_KEY=your_pineapple_api_key
+PINEAPPLE_API_SECRET=your_pineapple_api_secret
+PINEAPPLE_TRANSFER_API_URL=https://api.pineapple.co.za/transfer
+PINEAPPLE_QUOTE_API_URL=https://api.pineapple.co.za/quote
 ```
 
-## Running the API
+## Installation
 
-Development mode:
+### Local Development
 
-```bash
-python run.py
-```
+1. Clone the repository
+2. Create a virtual environment:
+   ```
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+3. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+4. Create a `.env` file with the required environment variables
+5. Run the application:
+   ```
+   python run.py
+   ```
 
-or
+### Docker Deployment
 
-```bash
-uvicorn app.main:app --reload
-```
-
-Production mode:
-
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
+1. Make sure Docker and Docker Compose are installed
+2. Clone the repository
+3. Create a `.env` file with the required environment variables
+4. Build and start the containers:
+   ```
+   docker-compose up -d --build
+   ```
+5. To stop the application:
+   ```
+   docker-compose down
+   ```
 
 ## API Endpoints
 
-- `POST /submit-form`: Submit form data as JSON (recommended)
-- `GET /health`: Health check endpoint
-- `GET /ping`: API status endpoint
+### Quote Request
 
-## JSON Submission Format
-
-The `/submit-form` endpoint accepts JSON data in the following format:
-
-```json
-{
-	"formData": {
-		"first_name": "John",
-		"last_name": "Doe",
-		"email": "john@example.com",
-		"id_number": "1234567890123",
-		"quote_id": "Q12345",
-		"contact_number": "0123456789"
-	},
-	"agentInfo": {
-		"agent": "Agent Name",
-		"branch": "Branch Office"
-	}
-}
+```
+POST /api/v1/quote
 ```
 
-## API Response
+See [Frontend.md](Frontend.md) for detailed request/response formats and examples.
 
-The API responds with:
+### Lead Transfer
 
-```json
-{
-	"message": "Form submitted successfully",
-	"document_id": "unique_document_id",
-	"api_response": {
-		"success": true,
-		"data": {
-			"uuid": "unique_uuid",
-			"redirect_url": "https://redirect-url-from-api"
-		}
-	},
-	"redirect_url": "https://redirect-url-from-api"
-}
+```
+POST /api/v1/transfer
 ```
 
-The `redirect_url` is included at the top level for easier access by clients.
+See [Frontend.md](Frontend.md) for detailed request/response formats and examples.
 
-## Appwrite Schema
+## Appwrite Setup
 
-The application uses an Appwrite schema defined in `appwrite-schema.json`. This schema determines the fields that are stored in the Appwrite database. The schema includes:
+1. Create a new Appwrite project
+2. Create a database with two collections:
+   - Quote collection
+   - Transfer collection
+3. Run the Appwrite schema initialization script:
+   ```
+   python scripts/appwrite_schema.py
+   ```
 
-- Customer information (first_name, last_name, email, etc.)
-- Agent information (agent, branch)
-- API response data (uuid, redirect_url)
-- Error handling fields (api_error)
+## Troubleshooting
 
-Make sure your Appwrite collection matches this schema. You can create the collection using the Appwrite Console or the Appwrite API.
+### Email Sending Issues
+
+If emails are not being sent correctly:
+1. Check SMTP credentials in your environment variables
+2. Verify that the recipient email addresses are correctly formatted
+3. Check the application logs for any SMTP-related errors
+
+### API Connection Issues
+
+If you're having trouble connecting to the Pineapple API:
+1. Verify your API credentials
+2. Check network connectivity
+3. Ensure you're using the correct API URLs
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

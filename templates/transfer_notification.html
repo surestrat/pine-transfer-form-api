@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lead Transfer Notification</title>
+</head>
+<body bgcolor="#f8f9fa" style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif;">
+    <!-- Main wrapper table -->
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#f8f9fa">
+        <tr>
+            <td align="center" style="padding: 20px;">
+                <!-- Email container -->
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 5px;">
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" bgcolor="{{ '#28a745' if success else '#dc3545' }}" style="padding: 20px; color: #ffffff; border-top-left-radius: 5px; border-top-right-radius: 5px;">
+                            <h2 style="margin: 0; font-size: 22px; font-weight: bold;">
+                                {% if success %}✅ Lead Transfer Success{% else %}⚠️ Lead Transfer Failed{% endif %}
+                            </h2>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 20px;">
+                            <!-- Status message -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px;">
+                                <tr>
+                                    <td bgcolor="{{ '#d4edda' if success else '#f8d7da' }}" style="{{ 'color: #155724; border: 1px solid #c3e6cb;' if success else 'color: #721c24; border: 1px solid #f5c6cb;' }} border-radius: 5px; padding: 15px; text-align: center; font-weight: bold;">
+                                        {{ status_line }}
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Customer Info -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 5px;">
+                                <tr>
+                                    <td bgcolor="#1c4c96" style="color: #ffffff; padding: 10px 15px; font-weight: bold; border-top-left-radius: 5px; border-top-right-radius: 5px;">
+                                        Customer Information 👤
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 15px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Name:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ transfer.customer_info.first_name }} {{ transfer.customer_info.last_name }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Email:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ transfer.customer_info.email }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Contact:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ transfer.customer_info.contact_number }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">ID Number:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ transfer.customer_info.id_number or "N/A" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; font-weight: bold;">Quote ID:</td>
+                                                <td width="70%" style="padding: 5px 0;">{{ transfer.customer_info.quote_id or "N/A" }}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Agent Info -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 5px;">
+                                <tr>
+                                    <td bgcolor="#1c4c96" style="color: #ffffff; padding: 10px 15px; font-weight: bold; border-top-left-radius: 5px; border-top-right-radius: 5px;">
+                                        Agent Information 🏢
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 15px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Agent:</td>
+                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ transfer.agent_info.agent_name }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30%" style="padding: 5px 0; font-weight: bold;">Branch:</td>
+                                                <td width="70%" style="padding: 5px 0;">{{ transfer.agent_info.branch_name }}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            {% if not success and error_message %}
+                            <!-- Error Details -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 5px;">
+                                <tr>
+                                    <td bgcolor="#1c4c96" style="color: #ffffff; padding: 10px 15px; font-weight: bold; border-top-left-radius: 5px; border-top-right-radius: 5px;">
+                                        Error Details ⚠️
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 15px; color: #dc3545;">
+                                        {{ error_message }}
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            <p style="color: #6c757d; margin-top: 20px;">This notification was automatically generated by the Surestrat API system. Please do not reply to this email.</p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td bgcolor="#f8f9fa" style="padding: 15px; color: #6c757d; font-size: 12px; text-align: center; border-top: 1px solid #dee2e6;">
+                            &copy; {{ now.year if now else "2025" }} Surestrat. All rights reserved.
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
