@@ -1,28 +1,97 @@
-# Environment variables
-.env
-
-# Logs
-*.log
-logs/
-
-# Python cache
-*__pycache__/
+# Byte-compiled / optimized / DLL files
+__pycache__/
 *.py[cod]
 *$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
 .pytest_cache/
 
-# Virtual Environment
-venv/
-env/
-ENV/
+# Jupyter Notebook
+.ipynb_checkpoints
 
-# IDE files
-.idea/
+# pyenv
+.python-version
+
+# mypy
+.mypy_cache/
+.dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# VS Code
 .vscode/
+
+# JetBrains IDEs
+*.iml
+.idea/
+# End JetBrains
+
+# dotenv environment variables
+.env
+.env.*
+
+# Docker
+*.log
+docker-compose.override.yml
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Local settings
+config/settings_local.py
+
+
+
+# Other
+*.bak
 *.swp
 *.swo
 
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
+# Ignore compiled files
+*.pyo
+
+# Ignore test output
+*.out
+
+# Ignore wheel files
+*.whl
+
