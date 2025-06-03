@@ -3,11 +3,18 @@ from dotenv import load_dotenv
 from pathlib import Path
 from pydantic_settings import BaseSettings
 from pydantic import Field
+from typing import Optional
 
 load_dotenv()
 
 BASE_DIR: Path = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR: Path = BASE_DIR / "templates"
+
+
+def parse_comma_separated_list(value: Optional[str]):
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
 
 
 class Settings(BaseSettings):
@@ -30,9 +37,24 @@ class Settings(BaseSettings):
     IS_PRODUCTION: bool = ENVIRONMENT == "production"
 
     # CORS settings
-    ALLOWED_ORIGINS: list[str] = os.getenv(
-        "ALLOWED_ORIGIN", "http://localhost:3000"
-    ).split(",")
+    ALLOWED_ORIGINS: list[str] = Field(
+        default_factory=lambda: parse_comma_separated_list(
+            os.getenv("ALLOWED_ORIGIN", "http://localhost:3000")
+        )
+    )
+    ALLOWED_METHODS: list[str] = Field(
+        default_factory=lambda: parse_comma_separated_list(
+            os.getenv("ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS")
+        )
+    )
+    ALLOWED_HEADERS: list[str] = Field(
+        default_factory=lambda: parse_comma_separated_list(
+            os.getenv(
+                "ALLOWED_HEADERS",
+                "Content-Type, Authorization, X-Requested-With, Accept, Origin",
+            )
+        )
+    )
 
     # Server settings
     HOST: str = "0.0.0.0"
