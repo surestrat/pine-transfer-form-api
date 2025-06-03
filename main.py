@@ -1,4 +1,3 @@
-import re
 from app.utils.rich_logger import setup_rich_logging
 from config.settings import settings
 import logging
@@ -55,20 +54,7 @@ class CORSMiddlewareManual(BaseHTTPMiddleware):
         return response
 
 
-docs_url = "/docs" if not settings.IS_PRODUCTION else None
-redoc_url = "/redoc" if not settings.IS_PRODUCTION else None
-openapi_url = (
-    f"/{settings.API_PREFIX}/openapi.json" if not settings.IS_PRODUCTION else None
-)
-
-app = FastAPI(
-    title="Pineapple Surestrat API",
-    description=settings.API_DESCRIPTION,
-    version=settings.API_VERSION,
-    openapi_url=openapi_url,
-    docs_url=docs_url,
-    redoc_url=redoc_url,
-)
+app = FastAPI(title="Pineapple Surestrat API")
 
 # Add our custom CORS middleware first (before any routing)
 app.add_middleware(CORSMiddlewareManual)
@@ -109,14 +95,14 @@ def health_check1():
 
 
 # Add a debug endpoint to check CORS configuration
-# @app.get("/debug/cors")
-# def debug_cors():
-#     """
-#     Returns the current CORS configuration for debugging.
-#     """
-#     return {
-#         "allowed_origins_raw": settings.ALLOWED_ORIGINS,
-#         "allowed_origins_parsed": allowed_origins,
-#         "api_environment": settings.ENVIRONMENT,
-#         "is_production": settings.IS_PRODUCTION,
-#     }
+@app.get("/debug/cors")
+def debug_cors():
+    """
+    Returns the current CORS configuration for debugging.
+    """
+    return {
+        "allowed_origins_raw": settings.ALLOWED_ORIGINS,
+        "allowed_origins_parsed": allowed_origins,
+        "api_environment": settings.ENVIRONMENT,
+        "is_production": settings.IS_PRODUCTION,
+    }
