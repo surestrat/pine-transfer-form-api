@@ -162,7 +162,9 @@ class Settings(BaseSettings):
         env_file: str = ".env"
         env_file_encoding: str = "utf-8"
         case_sensitive = True
-        extra = "ignore"  # Ignore extra env vars not defined as fields
+        extra = "ignore"
+        json_loads = lambda v: v
+        # Ignore extra env vars not defined as fields
 
 
 settings = Settings()
