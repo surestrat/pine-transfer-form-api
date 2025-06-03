@@ -32,23 +32,28 @@ def clean_dict(d):
     else:
         return d
 
+
 async def store_quote_request(
     collection_type: str, document_id: str, quote_data: QuoteRequest
 ):
     try:
         import json
+
         # NOTE: The 'vehicles' field is stored as a JSON string in Appwrite.
         # When reading from Appwrite, use json.loads(document['vehicles']) to get the list of vehicles.
         quote_data_dict = {
             "source": quote_data.source,
             "externalReferenceId": quote_data.externalReferenceId,
             # Serialize vehicles list to JSON string
-            "vehicles": json.dumps([
-                vehicle.model_dump(mode="json") for vehicle in quote_data.vehicles
-            ]),
+            "vehicles": json.dumps(
+                [vehicle.model_dump(mode="json") for vehicle in quote_data.vehicles]
+            ),
         }
         # Clean None values from payload (not strictly needed for string, but safe)
         flattened_data = clean_dict({**quote_data_dict})
+        # Ensure we're passing a dict to create_document
+        if not isinstance(flattened_data, dict):
+            raise ValueError("Expected a dictionary after cleaning data")
         document = db.create_document(
             data=flattened_data,
             collection_type=collection_type,
@@ -102,10 +107,13 @@ async def find_quote_by_phone(
         )
 
         # Use Query.equal directly in the queries list
-        quotes = db.list_documents(
-            collection_type="quote",
-            fields=None,
-        )
+        quotes = (
+            db.list_documents(
+                collection_type="quote",
+                fields=None,
+            )
+            or []
+        )  # Default to empty list if None is returned
         # Filter in Python since Appwrite Python SDK does not support Query.equal in list_documents directly
         filtered_quotes = [
             q
@@ -138,7 +146,8 @@ async def send_quote_request(
     request_id: Optional[str] = None,
 ):
     try:
-        import json # Ensure json is imported if not already at module level
+        import json  # Ensure json is imported if not already at module level
+
         update_data = quote_data.model_dump(mode="json")
 
         # Ensure 'source' is 'SureStrat' (case-sensitive)
@@ -151,23 +160,35 @@ async def send_quote_request(
         # Log environment information for debugging
         environment = "PRODUCTION" if settings.IS_PRODUCTION else "TEST"
         logger.info(f"[send_quote_request] Operating in {environment} environment")
-        logger.info(f"[send_quote_request] Using API endpoint: {settings.PINEAPPLE_QUOTE_API_URL}")
+        logger.info(
+            f"[send_quote_request] Using API endpoint: {settings.PINEAPPLE_QUOTE_API_URL}"
+        )
 
         logger.debug(f"[send_quote_request] Outgoing payload (dict): {update_data}")
-        logger.debug(f"[send_quote_request] Outgoing payload (JSON): {json.dumps(update_data)}")
+        logger.debug(
+            f"[send_quote_request] Outgoing payload (JSON): {json.dumps(update_data)}"
+        )
 
         # Construct authorization token exactly as seen in Postman collection
-        auth_token = f"KEY={settings.PINEAPPLE_API_KEY} SECRET={settings.PINEAPPLE_API_SECRET}"
+        auth_token = (
+            f"KEY={settings.PINEAPPLE_API_KEY} SECRET={settings.PINEAPPLE_API_SECRET}"
+        )
 
         # Mask secrets in logs
         masked_auth = f"KEY={settings.PINEAPPLE_API_KEY[:5]}...{settings.PINEAPPLE_API_KEY[-3:]} SECRET=***"
-        logger.info(f"[send_quote_request] Using authorization token: Bearer {masked_auth}")
+        logger.info(
+            f"[send_quote_request] Using authorization token: Bearer {masked_auth}"
+        )
         logger.info(f"[send_quote_request] Outgoing body: {json.dumps(update_data)}")
 
         api_url = settings.PINEAPPLE_QUOTE_API_URL
         if not api_url:
-            logger.error("[send_quote_request] PINEAPPLE_QUOTE_API_URL is not configured")
-            raise ValueError("PINEAPPLE_QUOTE_API_URL is not configured") # This will be caught by the outer except ValueError
+            logger.error(
+                "[send_quote_request] PINEAPPLE_QUOTE_API_URL is not configured"
+            )
+            raise ValueError(
+                "PINEAPPLE_QUOTE_API_URL is not configured"
+            )  # This will be caught by the outer except ValueError
 
         # Inner try-except for the HTTP request itself
         try:
@@ -179,21 +200,32 @@ async def send_quote_request(
                         "Content-Type": "application/json",
                         "Authorization": f"Bearer {auth_token}",
                     },
-                    json=update_data, # httpx handles JSON serialization for the json parameter
+                    json=update_data,  # httpx handles JSON serialization for the json parameter
                 )
-                logger.info(f"[send_quote_request] Pineapple response status: {response.status_code}")
-                logger.info(f"[send_quote_request] Pineapple response headers: {str(response.headers)}") # Log headers as string
-                logger.info(f"[send_quote_request] Pineapple response body: {response.text}")
+                logger.info(
+                    f"[send_quote_request] Pineapple response status: {response.status_code}"
+                )
+                logger.info(
+                    f"[send_quote_request] Pineapple response headers: {str(response.headers)}"
+                )  # Log headers as string
+                logger.info(
+                    f"[send_quote_request] Pineapple response body: {response.text}"
+                )
                 return response
-        except httpx.RequestError as exc: # Catch network errors, timeouts, etc.
-            logger.error(f"[send_quote_request] HTTP request failed: {exc!r} - URL: {exc.request.url!r}")
+        except httpx.RequestError as exc:  # Catch network errors, timeouts, etc.
+            logger.error(
+                f"[send_quote_request] HTTP request failed: {exc!r} - URL: {exc.request.url!r}"
+            )
             return {"error": f"HTTP request failed: {str(exc)}"}
 
     # This outer try-except catches ValueErrors (like missing URL) or any other unexpected errors
     except ValueError as ve:
         logger.error(f"[send_quote_request] Configuration or data error: {str(ve)}")
         return {"error": str(ve)}
-    except Exception as e: # Catch any other unexpected errors
-        logger.error(f"[send_quote_request] Unexpected exception in send_quote_request: {str(e)}")
-        return {"error": f"An unexpected error occurred in send_quote_request: {str(e)}"}
-
+    except Exception as e:  # Catch any other unexpected errors
+        logger.error(
+            f"[send_quote_request] Unexpected exception in send_quote_request: {str(e)}"
+        )
+        return {
+            "error": f"An unexpected error occurred in send_quote_request: {str(e)}"
+        }

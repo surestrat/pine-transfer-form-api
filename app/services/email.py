@@ -43,10 +43,16 @@ class EmailService:
             else self.smtp_username
         )
         # Ensure email_from is always a string and include sender name
-        self.email_from = f'"Surestrat API BOT" <{str(self.email_from)}>' if self.email_from is not None else ""
+        self.email_from = (
+            f'"Surestrat API BOT" <{str(self.email_from)}>'
+            if self.email_from is not None
+            else ""
+        )
         self.context = ssl.create_default_context()
         self.admin_emails = settings.ADMIN_EMAILS
-        self.logger.info(f"SMTP config: server={self.smtp_server}, port={self.smtp_port}, username={self.smtp_username}, from={self.email_from}")
+        self.logger.info(
+            f"SMTP config: server={self.smtp_server}, port={self.smtp_port}, username={self.smtp_username}, from={self.email_from}"
+        )
 
     def render_template(self, template_name: str, context: dict) -> str:
         """
@@ -59,7 +65,9 @@ class EmailService:
 
         try:
             template = self.template_env.get_template(template_name)
-            return template.render(**template_context)  # Use ** to unpack the dict as keyword args
+            return template.render(
+                **template_context
+            )  # Use ** to unpack the dict as keyword args
         except Exception as e:
             self.logger.error(f"Template rendering error: {str(e)}")
             # Return a basic fallback message if template rendering fails
@@ -80,8 +88,10 @@ class EmailService:
         # If a string, could be a single email or comma-separated list
         if isinstance(recipients, str):
             # Handle comma-separated emails
-            if ',' in recipients:
-                return [email.strip() for email in recipients.split(',') if email.strip()]
+            if "," in recipients:
+                return [
+                    email.strip() for email in recipients.split(",") if email.strip()
+                ]
             else:
                 return [recipients.strip()] if recipients.strip() else []
 
@@ -116,10 +126,10 @@ class EmailService:
     ) -> MIMEMultipart:
         """Prepare a well-formed MIME message with proper structure for email clients"""
         # Create the root message - a multipart/mixed container
-        msg_root = MIMEMultipart('mixed')
+        msg_root = MIMEMultipart("mixed")
 
         # Set message headers with proper encoding
-        msg_root["Subject"] = Header(subject, 'utf-8')
+        msg_root["Subject"] = subject  # MIMEMultipart handles encoding automatically
         msg_root["From"] = str(self.email_from) if self.email_from is not None else ""
         msg_root["To"] = self._get_recipients_header(recipients)
         msg_root["Date"] = formatdate(localtime=True)
@@ -132,7 +142,7 @@ class EmailService:
             msg_root["Bcc"] = self._get_recipients_header(bcc)
 
         # Create a multipart/alternative part for the email body
-        msg_alternative = MIMEMultipart('alternative')
+        msg_alternative = MIMEMultipart("alternative")
 
         # Generate plain text version from HTML
         plain_body = self._strip_html_tags(html_body)
@@ -155,18 +165,22 @@ class EmailService:
                     # Make sure the file exists
                     file_path = Path(attachment.path)
                     if not file_path.exists():
-                        self.logger.error(f"Attachment file not found: {attachment.path}")
+                        self.logger.error(
+                            f"Attachment file not found: {attachment.path}"
+                        )
                         continue
 
                     with open(attachment.path, "rb") as file:
                         part = MIMEApplication(file.read())
                         part.add_header(
                             "Content-Disposition",
-                            f"attachment; filename={attachment.filename}"
+                            f"attachment; filename={attachment.filename}",
                         )
                         msg_root.attach(part)
                 except Exception as e:
-                    self.logger.error(f"Failed to attach file {attachment.filename}: {str(e)}")
+                    self.logger.error(
+                        f"Failed to attach file {attachment.filename}: {str(e)}"
+                    )
 
         return msg_root
 
@@ -198,20 +212,29 @@ class EmailService:
                 return False
 
             # Prepare the complete MIME message
-            msg = self._prepare_message(subject, to_list, html_body, cc, bcc, attachments)
+            msg = self._prepare_message(
+                subject, to_list, html_body, cc, bcc, attachments
+            )
 
             if not self.smtp_server:
                 self.logger.error("SMTP server configuration is missing")
                 return False
 
-            self.logger.info(f"Connecting to SMTP server {self.smtp_server}:{self.smtp_port} as {self.smtp_username}")
+            self.logger.info(
+                f"Connecting to SMTP server {self.smtp_server}:{self.smtp_port} as {self.smtp_username}"
+            )
             # Connect to SMTP server and send the message
             with smtplib.SMTP_SSL(
                 self.smtp_server, self.smtp_port, context=self.context
             ) as server:
                 try:
-                    if self.smtp_username is not None and self.smtp_password is not None:
-                        self.logger.info(f"Attempting SMTP login for user: {self.smtp_username}")
+                    if (
+                        self.smtp_username is not None
+                        and self.smtp_password is not None
+                    ):
+                        self.logger.info(
+                            f"Attempting SMTP login for user: {self.smtp_username}"
+                        )
                         server.login(self.smtp_username, self.smtp_password)
                         self.logger.info("SMTP login successful")
                     else:
@@ -225,7 +248,7 @@ class EmailService:
                 server.sendmail(
                     from_addr=self.smtp_username,
                     to_addrs=all_recipients,
-                    msg=msg.as_string()
+                    msg=msg.as_string(),
                 )
 
             self.logger.info(f"Email sent successfully to {', '.join(to_list)}")
