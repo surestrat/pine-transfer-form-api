@@ -9,6 +9,7 @@ load_dotenv()
 BASE_DIR: Path = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR: Path = BASE_DIR / "templates"
 
+
 class Settings(BaseSettings):
     """Application settings."""
 
@@ -23,12 +24,14 @@ class Settings(BaseSettings):
     DEBUG: bool | str = os.getenv("DEBUG", False)
 
     # Environment configuration
-    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "test").lower()  # 'test' or 'production'
+    ENVIRONMENT: str = os.getenv(
+        "ENVIRONMENT", "test"
+    ).lower()  # 'test' or 'production'
     IS_PRODUCTION: bool = ENVIRONMENT == "production"
 
     # CORS settings
     ALLOWED_ORIGINS: list[str] = os.getenv(
-        "ALLOWED_ORIGINS", "http://localhost:3000"
+        "ALLOWED_ORIGIN", "http://localhost:3000"
     ).split(",")
 
     # Server settings
@@ -65,26 +68,28 @@ class Settings(BaseSettings):
     # External API - Pineapple credentials {bearer_token}
     # Test credentials
     PINEAPPLE_TEST_API_KEY: str = os.getenv("PINEAPPLE_TEST_API_KEY", "")
-    PINEAPPLE_TEST_API_SECRET: str = os.getenv(
-        "PINEAPPLE_TEST_API_SECRET",
-        ""
-    )
+    PINEAPPLE_TEST_API_SECRET: str = os.getenv("PINEAPPLE_TEST_API_SECRET", "")
 
     # Production credentials
     PINEAPPLE_PROD_API_KEY: str = os.getenv("PINEAPPLE_PROD_API_KEY", "")
-    PINEAPPLE_PROD_API_SECRET: str = os.getenv(
-        "PINEAPPLE_PROD_API_SECRET",
-        ""
-    )
+    PINEAPPLE_PROD_API_SECRET: str = os.getenv("PINEAPPLE_PROD_API_SECRET", "")
 
     # Dynamic credential selection based on environment
     @property
     def PINEAPPLE_API_KEY(self) -> str:
-        return self.PINEAPPLE_PROD_API_KEY if self.IS_PRODUCTION else self.PINEAPPLE_TEST_API_KEY
+        return (
+            self.PINEAPPLE_PROD_API_KEY
+            if self.IS_PRODUCTION
+            else self.PINEAPPLE_TEST_API_KEY
+        )
 
     @property
     def PINEAPPLE_API_SECRET(self) -> str:
-        return self.PINEAPPLE_PROD_API_SECRET if self.IS_PRODUCTION else self.PINEAPPLE_TEST_API_SECRET
+        return (
+            self.PINEAPPLE_PROD_API_SECRET
+            if self.IS_PRODUCTION
+            else self.PINEAPPLE_TEST_API_SECRET
+        )
 
     # External API - Pineapple endpoints
     PINEAPPLE_TEST_BASE_URL: str = "http://gw-test.pineapple.co.za"
@@ -92,7 +97,11 @@ class Settings(BaseSettings):
 
     @property
     def PINEAPPLE_BASE_URL(self) -> str:
-        return self.PINEAPPLE_PROD_BASE_URL if self.IS_PRODUCTION else self.PINEAPPLE_TEST_BASE_URL
+        return (
+            self.PINEAPPLE_PROD_BASE_URL
+            if self.IS_PRODUCTION
+            else self.PINEAPPLE_TEST_BASE_URL
+        )
 
     # URL paths
     PINEAPPLE_TRANSFER_PATH: str = "/users/motor_lead"
@@ -133,5 +142,5 @@ class Settings(BaseSettings):
         case_sensitive = True
         extra = "ignore"  # Ignore extra env vars not defined as fields
 
-settings = Settings()
 
+settings = Settings()

@@ -1,9 +1,11 @@
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr
 
+
 class EmailAttachment(BaseModel):
     path: str
     filename: str
+
 
 class EmailNotification(BaseModel):
     subject: str
@@ -18,9 +20,9 @@ class EmailNotification(BaseModel):
 
     class Config:
         extra = "forbid"
-        anystr_strip_whitespace = True
+        str_strip_whitespace = True
         use_enum_values = True
+
 
 class TestEmailRequest(BaseModel):
     email: EmailStr
-
