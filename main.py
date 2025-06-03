@@ -95,14 +95,14 @@ def health_check1():
 
 
 # Add a debug endpoint to check CORS configuration
-@app.get("/debug/cors")
-def debug_cors():
-    """
-    Returns the current CORS configuration for debugging.
-    """
-    return {
-        "allowed_origins_raw": settings.ALLOWED_ORIGINS,
-        "allowed_origins_parsed": allowed_origins,
-        "api_environment": settings.ENVIRONMENT,
-        "is_production": settings.IS_PRODUCTION,
-    }
+# @app.get("/debug/cors")
+# def debug_cors():
+#     """
+#     Returns the current CORS configuration for debugging.
+#     """
+#     return {
+#         "allowed_origins_raw": settings.ALLOWED_ORIGINS,
+#         "allowed_origins_parsed": allowed_origins,
+#         "api_environment": settings.ENVIRONMENT,
+#         "is_production": settings.IS_PRODUCTION,
+#     }
