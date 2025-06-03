@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     # CORS settings
     ALLOWED_ORIGINS: list[str] = os.getenv(
-        "ALLOWED_ORIGIN", "http://localhost:3000"
+        "ALLOWED_ORIGINS", "http://localhost:3000"
     ).split(",")
 
     # Server settings
