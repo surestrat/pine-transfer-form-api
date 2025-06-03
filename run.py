@@ -16,7 +16,11 @@ if __name__ == "__main__":
         load_dotenv()
 
         logging.basicConfig(
-            level=logging.DEBUG if os.getenv("DEBUG", "false").lower() == "true" else logging.INFO,
+            level=(
+                logging.DEBUG
+                if os.getenv("DEBUG", "false").lower() == "true"
+                else logging.INFO
+            ),
             format="[%(asctime)s] - %(levelname)s - %(message)s",
             datefmt="%Y/%m/%d %H:%M:%S",
         )
@@ -28,7 +32,7 @@ if __name__ == "__main__":
             "main:app",
             host="0.0.0.0",
             port=int(os.environ.get("PORT", 4000)),
-            reload=True,
+            reload=False,
             log_level=str(os.environ.get("LOG_LEVEL", "debug")).lower(),
             log_config=None,
         )
@@ -36,4 +40,3 @@ if __name__ == "__main__":
         print(f"An error occurred while starting the server: {e}")
         traceback.print_exc()
         sys.exit(1)
-
