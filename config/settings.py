@@ -11,10 +11,10 @@ BASE_DIR: Path = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR: Path = BASE_DIR / "templates"
 
 
-def parse_comma_separated_list(value: Optional[str]):
-    if not value:
-        return []
-    return [item.strip() for item in value.split(",") if item.strip()]
+# def parse_comma_separated_list(value: Optional[str]):
+#     if not value:
+#         return []
+#     return [item.strip() for item in value.split(",") if item.strip()]
 
 
 class Settings(BaseSettings):
@@ -37,24 +37,26 @@ class Settings(BaseSettings):
     IS_PRODUCTION: bool = ENVIRONMENT == "production"
 
     # CORS settings
-    ALLOWED_ORIGINS: list[str] = Field(
-        default_factory=lambda: parse_comma_separated_list(
-            os.getenv("ALLOWED_ORIGIN", "http://localhost:3000")
-        )
-    )
-    ALLOWED_METHODS: list[str] = Field(
-        default_factory=lambda: parse_comma_separated_list(
-            os.getenv("ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS")
-        )
-    )
-    ALLOWED_HEADERS: list[str] = Field(
-        default_factory=lambda: parse_comma_separated_list(
-            os.getenv(
-                "ALLOWED_HEADERS",
-                "Content-Type, Authorization, X-Requested-With, Accept, Origin",
-            )
-        )
-    )
+    ALLOWED_ORIGINS: str = os.getenv("ALLOWED_ORIGINS", "")
+
+    # ALLOWED_ORIGINS: list[str] = Field(
+    #     default_factory=lambda: parse_comma_separated_list(
+    #         os.getenv("ALLOWED_ORIGIN", "http://localhost:3000")
+    #     )
+    # )
+    # ALLOWED_METHODS: list[str] = Field(
+    #     default_factory=lambda: parse_comma_separated_list(
+    #         os.getenv("ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS")
+    #     )
+    # )
+    # ALLOWED_HEADERS: list[str] = Field(
+    #     default_factory=lambda: parse_comma_separated_list(
+    #         os.getenv(
+    #             "ALLOWED_HEADERS",
+    #             "Content-Type, Authorization, X-Requested-With, Accept, Origin",
+    #         )
+    #     )
+    # )
 
     # Server settings
     HOST: str = "0.0.0.0"
@@ -163,7 +165,7 @@ class Settings(BaseSettings):
         env_file_encoding: str = "utf-8"
         case_sensitive = True
         extra = "ignore"
-        json_loads = lambda v: v
+
         # Ignore extra env vars not defined as fields
 
 

@@ -10,7 +10,19 @@ from app.api.v1.endpoints import quote, transfer
 from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger("pine-api")
-logger.info(f"Starting with CORS origins: {settings.ALLOWED_ORIGINS}")
+
+
+# Parse ALLOWED_ORIGINS string into a list
+def parse_allowed_origins(origins_str: str):
+    """Parse comma-separated origins string into a list."""
+    if not origins_str:
+        return ["*"]  # Default to all origins if empty
+    return [origin.strip() for origin in origins_str.split(",") if origin.strip()]
+
+
+# Use the same parsing logic from your email service
+allowed_origins = parse_allowed_origins(settings.ALLOWED_ORIGINS)
+logger.info(f"Starting with CORS origins: {allowed_origins}")
 
 
 class CORSMiddlewareManual(BaseHTTPMiddleware):
@@ -34,20 +46,11 @@ class CORSMiddlewareManual(BaseHTTPMiddleware):
             response.headers["Access-Control-Allow-Headers"] = (
                 "Content-Type, Authorization, X-Requested-With, Accept, Origin"
             )
-            response.headers["Access-Control-Max-Age"] = (
-                "86400"  # Cache preflight for 24 hours
-            )
+            response.headers["Access-Control-Max-Age"] = "86400"
 
             return response
 
-        # For non-OPTIONS requests, process normally
         response = await call_next(request)
-
-        # For debugging
-        logger.debug(
-            f"{request.method} {request.url.path} - Response status: {response.status_code}"
-        )
-
         return response
 
 
@@ -56,10 +59,10 @@ app = FastAPI(title="Pineapple Surestrat API")
 # Add our custom CORS middleware first (before any routing)
 app.add_middleware(CORSMiddlewareManual)
 
-# Now add the standard CORS middleware
+# Now add the standard CORS middleware using the parsed list
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For debugging purposes, allow all origins
+    allow_origins=allowed_origins,  # Use the parsed list
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,7 +74,7 @@ app.include_router(quote.router, prefix="/api/v1", tags=["quote"])
 app.include_router(transfer.router, prefix="/api/v1", tags=["transfer"])
 
 
-# Global CORS OPTIONS handler for any path
+# Global OPTIONS handler
 @app.options("/{path:path}")
 async def options_handler(path: str):
     logger.info(f"Global OPTIONS handler called for path: {path}")
@@ -89,3 +92,17 @@ def health_check1():
     Health check endpoint to verify the API is running.
     """
     return {"status": "healthy", "cors_enabled": True}
+
+
+# Add a debug endpoint to check CORS configuration
+@app.get("/debug/cors")
+def debug_cors():
+    """
+    Returns the current CORS configuration for debugging.
+    """
+    return {
+        "allowed_origins_raw": settings.ALLOWED_ORIGINS,
+        "allowed_origins_parsed": allowed_origins,
+        "api_environment": settings.ENVIRONMENT,
+        "is_production": settings.IS_PRODUCTION,
+    }
