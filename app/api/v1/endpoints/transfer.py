@@ -19,14 +19,14 @@ email_service = EmailService()
     tags=["transfer"],
     status_code=201,
 )
-async def create_transfer(transfer: InTransferRequest, background_tasks: BackgroundTasks):
+async def create_transfer(
+    transfer: InTransferRequest, background_tasks: BackgroundTasks
+):
     # Store the transfer request (with agent/branch info)
     try:
         doc_id = transfer.customer_info.quote_id or ""
         await store_transfer_request(
-            collection_type="transfer",
-            document_id=doc_id,
-            transfer_data=transfer
+            collection_type="transfer", document_id=doc_id, transfer_data=transfer
         )
     except Exception as e:
         logger.error(f"Failed to store transfer: {str(e)}")

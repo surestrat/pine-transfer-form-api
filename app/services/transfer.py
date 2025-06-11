@@ -1,5 +1,3 @@
-import logging
-
 import httpx
 
 from uuid import uuid4
@@ -33,10 +31,10 @@ async def store_transfer_request(
         update_data = {
             "first_name": transfer_data.customer_info.first_name,
             "last_name": transfer_data.customer_info.last_name,
-            "email": transfer_data.customer_info.email,
+            "email": transfer_data.customer_info.email or "",
             "contact_number": transfer_data.customer_info.contact_number,
-            "id_number": transfer_data.customer_info.id_number,
-            "quote_id": transfer_data.customer_info.quote_id,
+            "id_number": transfer_data.customer_info.id_number or "",
+            "quote_id": transfer_data.customer_info.quote_id or "",
             "agent_name": transfer_data.agent_info.agent_name,
             "branch_name": transfer_data.agent_info.branch_name,
         }
@@ -83,7 +81,7 @@ async def send_transfer_request(
             "source": "SureStrat",  # Hardcoded to ensure correct casing
             "first_name": transfer_data.customer_info.first_name,
             "last_name": transfer_data.customer_info.last_name,
-            "email": transfer_data.customer_info.email,
+            "email": transfer_data.customer_info.email or "",
             "id_number": transfer_data.customer_info.id_number or "",
             "quote_id": transfer_data.customer_info.quote_id or "",
             "contact_number": transfer_data.customer_info.contact_number,
@@ -92,17 +90,25 @@ async def send_transfer_request(
         # Log environment information for debugging
         environment = "PRODUCTION" if settings.IS_PRODUCTION else "TEST"
         logger.info(f"[send_transfer_request] Operating in {environment} environment")
-        logger.info(f"[send_transfer_request] Using API endpoint: {settings.PINEAPPLE_TRANSFER_API_URL}")
+        logger.info(
+            f"[send_transfer_request] Using API endpoint: {settings.PINEAPPLE_TRANSFER_API_URL}"
+        )
 
         # Construct authorization token exactly as seen in Postman collection
-        auth_token = f"KEY={settings.PINEAPPLE_API_KEY} SECRET={settings.PINEAPPLE_API_SECRET}"
+        auth_token = (
+            f"KEY={settings.PINEAPPLE_API_KEY} SECRET={settings.PINEAPPLE_API_SECRET}"
+        )
 
         # Mask secrets in logs
         masked_auth = f"KEY={settings.PINEAPPLE_API_KEY[:5]}...{settings.PINEAPPLE_API_KEY[-3:]} SECRET=***"
-        logger.info(f"[send_transfer_request] Using authorization token: Bearer {masked_auth}")
+        logger.info(
+            f"[send_transfer_request] Using authorization token: Bearer {masked_auth}"
+        )
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            logger.info(f"[send_transfer_request] Payload to external API: {request_payload}")
+            logger.info(
+                f"[send_transfer_request] Payload to external API: {request_payload}"
+            )
             if settings.PINEAPPLE_TRANSFER_API_URL is None:
                 raise ValueError("PINEAPPLE_TRANSFER_API_URL is not configured")
 
@@ -114,9 +120,15 @@ async def send_transfer_request(
                 },
                 json=request_payload,
             )
-            logger.info(f"[send_transfer_request] Pineapple response status: {response.status_code}")
-            logger.info(f"[send_transfer_request] Pineapple response headers: {str(response.headers)}")
-            logger.info(f"[send_transfer_request] Pineapple response body: {response.text}")
+            logger.info(
+                f"[send_transfer_request] Pineapple response status: {response.status_code}"
+            )
+            logger.info(
+                f"[send_transfer_request] Pineapple response headers: {str(response.headers)}"
+            )
+            logger.info(
+                f"[send_transfer_request] Pineapple response body: {response.text}"
+            )
 
             try:
                 response_data = response.json()
