@@ -7,7 +7,7 @@ from app.utils.examples import get_transfer_example, get_transfer_response_examp
 class CustomerInfo(BaseModel):
     first_name: str
     last_name: str
-    email: EmailStr
+    email:Optional[EmailStr] = None
     contact_number: str
     id_number: Optional[str] = None
     quote_id: Optional[str] = None
