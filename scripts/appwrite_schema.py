@@ -2,6 +2,11 @@ import logging
 import time
 from appwrite.exception import AppwriteException
 from appwrite.services.databases import Databases
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
 
 
 def log_and_create_attribute(create_func, *args, **kwargs):
@@ -85,9 +90,7 @@ async def main():
     from app.utils.appwrite import AppwriteService
     from config.settings import settings
 
-    project_root = Path(__file__).parent.parent
-    sys.path.insert(0, str(project_root))
-
+    sys.path.append(str(Path(__file__).resolve().parent.parent))
     load_dotenv()
 
     logging.basicConfig(level=logging.INFO)
