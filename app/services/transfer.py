@@ -14,6 +14,7 @@ from app.schemas.transfer import (
 
 from app.utils.rich_logger import get_rich_logger
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 logger = get_rich_logger("Surestrat -> Pineapple -> API {appwrite}")
 db = AppwriteService()
@@ -38,8 +39,8 @@ async def store_transfer_request(
             "quote_id": transfer_data.customer_info.quote_id or "",
             "agent_name": transfer_data.agent_info.agent_name,
             "branch_name": transfer_data.agent_info.branch_name,
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
+            "created_at": datetime.now(ZoneInfo("Africa/Johannesburg")).isoformat(),
+            "updated_at": datetime.now(ZoneInfo("Africa/Johannesburg")).isoformat(),
         }
         document_id = document_id or safe_uuid()
 
