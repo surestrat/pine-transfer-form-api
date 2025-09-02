@@ -1,4 +1,5 @@
 import httpx
+import datetime
 
 from uuid import uuid4
 
@@ -39,15 +40,19 @@ async def store_quote_request(
     try:
         import json
 
-        # NOTE: The 'vehicles' field is stored as a JSON string in Appwrite.
-        # When reading from Appwrite, use json.loads(document['vehicles']) to get the list of vehicles.
+        # NOTE: The 'vehicles' field is stored as JSON strings in Appwrite.
+        # Convert vehicles to JSON strings for storage
         quote_data_dict = {
             "source": quote_data.source,
-            "externalReferenceId": quote_data.externalReferenceId,
-            # Serialize vehicles list to JSON string
-            "vehicles": json.dumps(
-                [vehicle.model_dump(mode="json") for vehicle in quote_data.vehicles]
-            ),
+            "internalReference": quote_data.externalReferenceId,
+            # Store vehicles as JSON strings (not objects)
+            "status": "PENDING",
+            "vehicles": [json.dumps(vehicle.model_dump(mode="json")) for vehicle in quote_data.vehicles],
+            # Include agent information if provided
+            "agentEmail": quote_data.agentEmail,
+            "agentBranch": quote_data.agentBranch,
+            # Add created_at timestamp to satisfy Appwrite requirements
+            "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
         # Clean None values from payload (not strictly needed for string, but safe)
         flattened_data = clean_dict({**quote_data_dict})
@@ -71,10 +76,16 @@ async def update_quote_response(
     collection_type: str, document_id: str, response_data: QuoteResponse
 ):
     try:
-        # Use model_dump_json to serialize the response as a JSON string, then load as dict
-        import json
-
-        update_data = json.loads(response_data.model_dump_json())
+        # Convert premium and excess to strings to match Appwrite schema
+        update_data = {
+            "premium": str(response_data.premium),
+            "excess": str(response_data.excess)
+        }
+        
+        # Add quoteId if available
+        if response_data.quoteId:
+            update_data["quoteId"] = response_data.quoteId
+            
         doc = db.update_document(
             document_id=document_id, data=update_data, collection_type=collection_type
         )

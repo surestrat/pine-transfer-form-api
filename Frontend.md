@@ -19,6 +19,8 @@ The quote request endpoint requires a structured JSON payload with the following
 {
   "source": "SureStrat",
   "externalReferenceId": "YOUR_UNIQUE_REFERENCE",
+  "agentEmail": "agent@example.com",
+  "agentBranch": "Sandton Branch",
   "vehicles": [
     {
       "year": 2022,
@@ -64,6 +66,8 @@ The quote request endpoint requires a structured JSON payload with the following
 }
 ```
 
+**Note**: For quotes, use `agentEmail` and `agentBranch` (camelCase). For transfers, use `agent_email` and `branch_name` (snake_case).
+
 ### Response Structure
 
 ```json
@@ -87,7 +91,9 @@ const requestQuote = async (quoteData) => {
     const payload = {
       ...quoteData,
       source: "SureStrat",
-      externalReferenceId: uniqueRef
+      externalReferenceId: uniqueRef,
+      agentEmail: quoteData.agentEmail || "default@agent.com",
+      agentBranch: quoteData.agentBranch || "Default Branch"
     };
     
     const response = await axios.post('https://your-api-domain.com/api/v1/quote', payload, {
@@ -126,11 +132,13 @@ const requestQuote = async (quoteData) => {
     "quote_id": "QUOTE-12345"
   },
   "agent_info": {
-    "agent_name": "Sarah Jones",
+    "agent_email": "john.doe@surestrat.co.za",
     "branch_name": "Sandton Branch"
   }
 }
 ```
+
+**Note**: For transfers, use `agent_email` and `branch_name` (snake_case). For quotes, use `agentEmail` and `agentBranch` (camelCase).
 
 ### Response Structure
 
@@ -138,6 +146,32 @@ const requestQuote = async (quoteData) => {
 {
   "uuid": "a1b2c3d4-e5f6-7890-abcd-1234567890ab",
   "redirect_url": "https://portal.pineapple.co.za/quote/a1b2c3d4-e5f6"
+}
+```
+
+### Duplicate Prevention
+
+The API automatically prevents duplicate lead transfers by checking both ID number and contact number. If a duplicate is found, the API returns an HTTP 409 Conflict response with details about the existing transfer.
+
+#### Duplicate Check Behavior
+- **Primary Check**: ID number (if provided)
+- **Secondary Check**: Contact number (if ID number check fails)
+- **Normalization**: Spaces, dashes, and plus signs are automatically removed for consistent matching
+- **Response**: Includes the submission date and which field matched
+
+#### Example Duplicate Error Response
+
+```json
+{
+  "detail": "Transfer already exists for this ID number. Existing transfer ID: abc123def, submitted on: 2025-09-01 14:30:25 UTC"
+}
+```
+
+or
+
+```json
+{
+  "detail": "Transfer already exists for this contact number. Existing transfer ID: xyz789ghi, submitted on: 2025-08-15 09:15:42 UTC"
 }
 ```
 
@@ -153,7 +187,10 @@ const transferLead = async (customerData, agentData, quoteId) => {
         ...customerData,
         quote_id: quoteId
       },
-      agent_info: agentData
+      agent_info: {
+        agent_email: agentData.agentEmail || agentData.agent_email,
+        branch_name: agentData.agentBranch || agentData.branch_name
+      }
     };
     
     const response = await axios.post('https://your-api-domain.com/api/v1/transfer', payload, {
@@ -167,11 +204,39 @@ const transferLead = async (customerData, agentData, quoteId) => {
       data: response.data
     };
   } catch (error) {
-    return {
-      success: false,
-      error: error.response?.data?.detail || 'Failed to transfer lead',
-      status: error.response?.status
-    };
+    // Handle different error types
+    if (error.response?.status === 409) {
+      // Duplicate transfer detected
+      return {
+        success: false,
+        error: error.response.data.detail,
+        type: 'duplicate',
+        status: 409
+      };
+    } else if (error.response?.status === 400) {
+      // Bad request - validation error
+      return {
+        success: false,
+        error: error.response.data.detail || 'Invalid request data',
+        type: 'validation',
+        status: 400
+      };
+    } else if (error.response?.status === 502) {
+      // Pineapple API error
+      return {
+        success: false,
+        error: 'Unable to process transfer at this time. Please try again later.',
+        type: 'external_api',
+        status: 502
+      };
+    } else {
+      // Other errors
+      return {
+        success: false,
+        error: error.response?.data?.detail || 'Failed to transfer lead',
+        status: error.response?.status || 500
+      };
+    }
   }
 };
 ```
@@ -203,6 +268,8 @@ const InsuranceForm = () => {
       const quotePayload = {
         source: "SureStrat",
         externalReferenceId: `QUOTE-${Date.now()}`,
+        agentEmail: formData.agentEmail || "website@example.com",
+        agentBranch: formData.agentBranch || "Online Branch",
         vehicles: [
           {
             year: formData.vehicleYear,
@@ -258,8 +325,8 @@ const InsuranceForm = () => {
           quote_id: quoteId
         },
         agent_info: {
-          agent_name: "Website Lead",
-          branch_name: "Online Branch"
+          agent_email: customerInfo.agentEmail || "website@example.com",
+          branch_name: customerInfo.agentBranch || "Online Branch"
         }
       };
       
@@ -272,7 +339,19 @@ const InsuranceForm = () => {
         window.location.href = response.data.redirect_url;
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to transfer lead');
+      if (err.response?.status === 409) {
+        // Handle duplicate transfer
+        setError(`This customer has already been transferred. ${err.response.data.detail}`);
+      } else if (err.response?.status === 400) {
+        // Handle validation errors
+        setError(`Please check your information: ${err.response.data.detail}`);
+      } else if (err.response?.status === 502) {
+        // Handle external API errors
+        setError('Unable to process transfer at this time. Please try again later.');
+      } else {
+        // Handle other errors
+        setError(err.response?.data?.detail || 'Failed to transfer lead');
+      }
       console.error('Transfer error:', err);
     } finally {
       setLoading(false);
@@ -290,6 +369,37 @@ const InsuranceForm = () => {
 export default InsuranceForm;
 ```
 
+## Agent Information Fields
+
+### Important: Field Naming Conventions
+
+The API uses different field naming conventions for agent information depending on the endpoint:
+
+#### For Quote Requests (`/api/v1/quote`)
+Use **camelCase** field names:
+```json
+{
+  "agentEmail": "agent@example.com",
+  "agentBranch": "Sandton Branch"
+}
+```
+
+#### For Transfer Requests (`/api/v1/transfer`)
+Use **snake_case** field names:
+```json
+{
+  "agent_email": "agent@example.com",
+  "branch_name": "Sandton Branch"
+}
+```
+
+### Agent Field Requirements
+
+- **agentEmail/agent_email**: Required for both endpoints
+- **agentBranch/branch_name**: Required for both endpoints
+- Both fields are used for tracking and reporting purposes
+- The API will store this information with the request for audit trails
+
 ## Important Notes
 
 1. Always validate user input before sending to the API
@@ -298,10 +408,61 @@ export default InsuranceForm;
 4. Email addresses must be valid format
 5. Phone numbers should be in the format '0821234567' (no spaces or special characters)
 
+## Handling Duplicate Transfers
+
+When a duplicate transfer is detected (HTTP 409), consider these user experience best practices:
+
+### User Feedback
+- **Clear Message**: Show the exact error message from the API, which includes when the original transfer was submitted
+- **Actionable Options**: Provide options like "Contact Support" or "View Existing Transfer"
+- **Prevention**: Consider pre-checking for duplicates before submission using a separate validation endpoint
+
+### Example Duplicate Handling
+
+```javascript
+// Handle duplicate transfer in your UI
+const handleDuplicateTransfer = (errorDetail) => {
+  // Parse the error message to extract useful information
+  const match = errorDetail.match(/submitted on: ([^)]+)/);
+  const submissionDate = match ? match[1] : 'unknown date';
+  
+  // Show user-friendly message
+  showNotification({
+    type: 'warning',
+    title: 'Transfer Already Exists',
+    message: `This customer was already transferred on ${submissionDate}. Please check with the customer or contact support if you need to make changes.`,
+    actions: [
+      {
+        label: 'Contact Support',
+        action: () => openSupportChat()
+      }
+    ]
+  });
+};
+```
+
+### Prevention Strategies
+- **Pre-submission Check**: Implement a "Check for Existing Transfer" button before the main submit
+- **Form Validation**: Highlight ID number and contact number fields as key duplicate prevention fields
+- **User Confirmation**: For high-value transfers, ask for confirmation when these fields match existing records
+
+## Data Input Guidelines
+
+### Field Normalization
+The API automatically normalizes certain fields for duplicate detection:
+- **ID Numbers**: Spaces and dashes are removed (e.g., "80 0101 5009 087" → "8001015009087")
+- **Contact Numbers**: Spaces, dashes, and plus signs are removed (e.g., "+27 82 123 4567" → "27821234567")
+
+### Best Practices for Input
+- **ID Numbers**: Accept various formats but consider normalizing on the frontend for consistency
+- **Contact Numbers**: Use international format without special characters for best compatibility
+- **Required Fields**: Both `id_number` and `contact_number` are required for optimal duplicate prevention
+
 ## Response Codes
 
 - `201 Created`: Request processed successfully
 - `400 Bad Request`: Invalid input data
+- `409 Conflict`: Duplicate transfer detected (includes submission date and details)
 - `500 Internal Server Error`: Server-side issue
 - `502 Bad Gateway`: Issue communicating with the Pineapple API
 

@@ -9,7 +9,7 @@ from typing import Optional, List, Union
 from config.settings import settings
 import logging
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import os
 from pathlib import Path
 
@@ -17,6 +17,13 @@ from app.schemas.transfer import InTransferRequest
 from app.schemas.email import EmailAttachment
 
 logger = logging.getLogger("email_service")
+
+# South African Standard Time (SAST) is UTC+2
+SAST = timezone(timedelta(hours=2))
+
+def get_sast_now() -> datetime:
+    """Get current time in South African Standard Time (UTC+2)"""
+    return datetime.now(SAST)
 
 # Setup Jinja2 environment for templates
 template_env = Environment(
@@ -44,7 +51,7 @@ class EmailService:
         )
         # Ensure email_from is always a string and include sender name
         self.email_from = (
-            f'"Surestrat API BOT" <{str(self.email_from)}>'
+            f'"Surestrat - Pineapple system" <{str(self.email_from)}>'
             if self.email_from is not None
             else ""
         )
@@ -56,12 +63,12 @@ class EmailService:
 
     def render_template(self, template_name: str, context: dict) -> str:
         """
-        Render a template with the given context, ensuring 'now' is always available
+        Render a template with the given context, ensuring 'now' is always available in SAST
         """
-        # Add current date to all templates for footer and date display
+        # Add current date in SAST to all templates for footer and date display
         template_context = context.copy() if context else {}
         if "now" not in template_context:
-            template_context["now"] = datetime.now()
+            template_context["now"] = get_sast_now()
 
         try:
             template = self.template_env.get_template(template_name)
@@ -274,7 +281,7 @@ class EmailService:
             else f"Lead Transfer Failed: {transfer_data.customer_info.first_name} {transfer_data.customer_info.last_name}"
         )
         status_line = (
-            "✅ Successfully transferred lead to Pineapple"
+            "✅ New Report"
             if success
             else f"❌ Lead transfer failed: {error_message or 'Unknown error'}"
         )
@@ -283,7 +290,7 @@ class EmailService:
             "status_line": status_line,
             "success": success,
             "error_message": error_message,
-            "now": datetime.now(),
+            "now": get_sast_now(),
         }
         return self.send_email(
             subject=subject,

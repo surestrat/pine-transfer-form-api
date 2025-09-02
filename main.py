@@ -36,18 +36,21 @@ class CORSMiddlewareManual(BaseHTTPMiddleware):
             origin = request.headers.get("origin", "")
             logger.info(f"Request origin: {origin}")
 
-            # Add CORS headers
-            response.headers["Access-Control-Allow-Origin"] = (
-                "*"  # For debugging, use "*"
-            )
+            # Check if origin is in allowed origins (same as standard middleware)
+            allowed_origin = "*" if "*" in allowed_origins else (origin if origin in allowed_origins else "null")
+            
+            # Add CORS headers using consistent origin policy
+            response.headers["Access-Control-Allow-Origin"] = allowed_origin
             response.headers["Access-Control-Allow-Methods"] = (
                 "GET, POST, PUT, DELETE, OPTIONS"
             )
             response.headers["Access-Control-Allow-Headers"] = (
                 "Content-Type, Authorization, X-Requested-With, Accept, Origin"
             )
+            response.headers["Access-Control-Allow-Credentials"] = "true"
             response.headers["Access-Control-Max-Age"] = "86400"
 
+            logger.info(f"OPTIONS response: origin={allowed_origin}")
             return response
 
         response = await call_next(request)

@@ -42,7 +42,7 @@ def init_transfer_schema(db, database_id, transfer_collection_id):
         log_and_create_attribute(db.create_string_attribute, database_id, transfer_collection_id, key="contact_number", size=15, required=True)
         log_and_create_attribute(db.create_string_attribute, database_id, transfer_collection_id, key="uuid", size=255, required=False)
         log_and_create_attribute(db.create_string_attribute, database_id, transfer_collection_id, key="redirect_url", size=255, required=False)
-        log_and_create_attribute(db.create_string_attribute, database_id, transfer_collection_id, key="agent_name", size=30, required=True)
+        log_and_create_attribute(db.create_string_attribute, database_id, transfer_collection_id, key="agent_email", size=255, required=True)
         log_and_create_attribute(db.create_string_attribute, database_id, transfer_collection_id, key="branch_name", size=30, required=True)
         log_and_create_attribute(db.create_index, database_id, transfer_collection_id, key="unique_email", type="unique", attributes=["email"])
         log_and_create_attribute(db.create_index, database_id, transfer_collection_id, key="unique_contact_number", type="unique", attributes=["contact_number"])
@@ -67,7 +67,7 @@ def init_quote_schema(db, database_id, quote_collection_id):
             db.create_string_attribute,
             database_id,
             quote_collection_id,
-            key="externalReferenceId",
+            key="internalReference",
             size=50,
             required=True
         )
@@ -75,11 +75,62 @@ def init_quote_schema(db, database_id, quote_collection_id):
             db.create_string_attribute,
             database_id,
             quote_collection_id,
-            key="vehicles",
-            size=10000,  # large enough to store JSON string
+            key="status",
+            size=20,
             required=True
         )
-        logging.info("Successfully initialized quote attributes for vehicles as string.")
+        log_and_create_attribute(
+            db.create_string_attribute,
+            database_id,
+            quote_collection_id,
+            key="premium",
+            size=20,
+            required=False
+        )
+        log_and_create_attribute(
+            db.create_string_attribute,
+            database_id,
+            quote_collection_id,
+            key="excess",
+            size=20,
+            required=False
+        )
+        # Create vehicles as string array to match existing schema
+        log_and_create_attribute(
+            db.create_string_attribute,
+            database_id,
+            quote_collection_id,
+            key="vehicles",
+            size=10000,
+            required=True,
+            array=True  # This creates a string array
+        )
+        # Add agent information attributes
+        log_and_create_attribute(
+            db.create_string_attribute,
+            database_id,
+            quote_collection_id,
+            key="agentEmail",
+            size=255,
+            required=False
+        )
+        log_and_create_attribute(
+            db.create_string_attribute,
+            database_id,
+            quote_collection_id,
+            key="agentBranch",
+            size=50,
+            required=False
+        )
+        # Add created_at timestamp field
+        log_and_create_attribute(
+            db.create_datetime_attribute,
+            database_id,
+            quote_collection_id,
+            key="created_at",
+            required=False
+        )
+        logging.info("Successfully initialized quote attributes for vehicles as string array.")
     except Exception as e:
         logging.error(f"Error in init_quote_schema: {e}")
 

@@ -1,160 +1,367 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quote Request Notification</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        /* Light mode (default) */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --bg-tertiary: #f3f4f6;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --text-muted: #9ca3af;
+            --border-color: #f3f4f6;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            --shadow-large: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        /* Dark mode */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #1f2937;
+                --bg-secondary: #111827;
+                --bg-tertiary: #374151;
+                --text-primary: #f9fafb;
+                --text-secondary: #d1d5db;
+                --text-muted: #9ca3af;
+                --border-color: #374151;
+                --shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+                --shadow-large: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+            }
+        }
+        
+        .icon {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .card {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 24px;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .info-row {
+            display: flex;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            flex: 0 0 35%;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        .info-value {
+            flex: 1;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        
+        .email-container {
+            background-color: var(--bg-primary);
+            box-shadow: var(--shadow-large);
+        }
+        
+        .email-body {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+        }
+        
+        .footer-message {
+            background: var(--bg-secondary);
+            border-left: 4px solid #667eea;
+        }
+        
+        .footer-text {
+            color: var(--text-secondary);
+        }
+        
+        .footer-main {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .badge.success {
+                background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            }
+            
+            .status-badge {
+                background: var(--bg-tertiary);
+                color: var(--text-primary);
+            }
+            
+            .value-highlight {
+                background: var(--bg-tertiary);
+                color: var(--text-primary);
+            }
+        }
+        
+        .timezone-badge {
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        
+        .header-title {
+            color: white !important;
+        }
+        
+        .header-subtitle {
+            color: rgba(255, 255, 255, 0.8) !important;
+        }
+    </style>
 </head>
-<body bgcolor="#f8f9fa" style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif;">
+<body style="margin: 0; padding: 0; background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
     <!-- Main wrapper table -->
-    <table border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#f8f9fa">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" class="email-body">
         <tr>
-            <td align="center" style="padding: 20px;">
+            <td align="center" style="padding: 40px 20px;">
                 <!-- Email container -->
-                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 5px;">
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" class="email-container" style="max-width: 640px; border-radius: 16px;">
                     <!-- Header -->
                     <tr>
-                        <td align="center" bgcolor="#005baa" style="padding: 20px; color: #ffffff; border-top-left-radius: 5px; border-top-right-radius: 5px;">
-                            <h2 style="margin: 0; font-size: 22px; font-weight: bold;">
-                                🚗 New Quote Request Notification
-                            </h2>
+                        <td style="padding: 0;">
+                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 32px 32px 24px; border-radius: 16px 16px 0 0; text-align: center;">
+                                <div style="width: 56px; height: 56px; background: rgba(255, 255, 255, 0.15); border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                                    🚗
+                                </div>
+                                <h1 class="header-title" style="margin: 0; font-size: 24px; font-weight: 700; color: white; letter-spacing: -0.025em;">
+                                    Quote Request Received
+                                </h1>
+                                <p class="header-subtitle" style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.8); font-size: 14px;">
+                                    A new insurance quote has been requested
+                                </p>
+                            </div>
                         </td>
                     </tr>
 
                     <!-- Content -->
                     <tr>
-                        <td style="padding: 20px;">
+                        <td style="padding: 32px;">
                             <!-- Request Overview -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 5px;">
-                                <tr>
-                                    <td bgcolor="#1c4c96" style="color: #ffffff; padding: 10px 15px; font-weight: bold; border-top-left-radius: 5px; border-top-right-radius: 5px;">
-                                        Request Overview
-                                        <span style="float: right; background-color: #00c2ff; padding: 2px 8px; border-radius: 3px; font-size: 12px;">{{ quote.source }}</span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 15px;">
-                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Reference ID:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ quote.externalReferenceId }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; font-weight: bold;">Timestamp:</td>
-                                                <td width="70%" style="padding: 5px 0;">{{ now.strftime("%Y-%m-%d %H:%M:%S") if now else "N/A" }}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
+                            <div class="card">
+                                <div class="card-header">
+                                    📋 Request Overview
+                                    <span class="badge" style="float: right; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">{{ quote.source }}</span>
+                                </div>
+                                <div style="padding: 24px;">
+                                    <div class="info-row">
+                                        <div class="info-label">Reference ID</div>
+                                        <div class="info-value" style="font-weight: 600; color: #667eea;">{{ quote.externalReferenceId }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Agent Email</div>
+                                        <div class="info-value">{{ quote.agentEmail or "N/A" }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Agent Branch</div>
+                                        <div class="info-value">{{ quote.agentBranch or "N/A" }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Timestamp (SAST)</div>
+                                        <div class="info-value">
+                                            {% if now %}
+                                                <span style="font-weight: 600;">{{ now.strftime("%d %B %Y") }}</span>
+                                                <span style="margin-left: 8px; color: var(--text-secondary);">at</span>
+                                                <span style="margin-left: 8px; font-weight: 600; color: #667eea;">{{ now.strftime("%H:%M:%S") }}</span>
+                                                <span style="margin-left: 8px; font-size: 12px;" class="timezone-badge">+02:00</span>
+                                            {% else %}
+                                                N/A
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
                             {% for vehicle in quote.vehicles %}
                             <!-- Vehicle Information -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 5px;">
-                                <tr>
-                                    <td bgcolor="#1c4c96" style="color: #ffffff; padding: 10px 15px; font-weight: bold; border-top-left-radius: 5px; border-top-right-radius: 5px;">
-                                        Vehicle Information 🚘
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 15px;">
-                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Make & Model:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">MM Code:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.mmCode or "N/A" }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Value:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">Retail: R{{ "{:,}".format(vehicle.retailValue) if vehicle.retailValue else "N/A" }} | Market: R{{ "{:,}".format(vehicle.marketValue) if vehicle.marketValue else "N/A" }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Cover Type:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.coverCode or "N/A" }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; font-weight: bold;">Use Type:</td>
-                                                <td width="70%" style="padding: 5px 0;">{{ vehicle.useType or "N/A" }}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
+                            <div class="card">
+                                <div class="card-header">
+                                    🚘 Vehicle Information
+                                </div>
+                                <div style="padding: 24px;">
+                                    <div class="info-row">
+                                        <div class="info-label">Make & Model</div>
+                                        <div class="info-value" style="font-weight: 600;">{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">MM Code</div>
+                                        <div class="info-value">{{ vehicle.mmCode or "N/A" }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Vehicle Value</div>
+                                        <div class="info-value">
+                                            <span style="color: #10b981; font-weight: 600;">Retail:</span> R{{ "{:,}".format(vehicle.retailValue) if vehicle.retailValue else "N/A" }}
+                                            <span style="margin-left: 16px; color: #667eea; font-weight: 600;">Market:</span> R{{ "{:,}".format(vehicle.marketValue) if vehicle.marketValue else "N/A" }}
+                                        </div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Cover Type</div>
+                                        <div class="info-value">
+                                            <span class="status-badge" style="background: var(--bg-tertiary); color: var(--text-primary); padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 500;">{{ vehicle.coverCode or "N/A" }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Use Type</div>
+                                        <div class="info-value">{{ vehicle.useType or "N/A" }}</div>
+                                    </div>
+                                </div>
+                            </div>
 
                             <!-- Regular Driver -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 5px;">
-                                <tr>
-                                    <td bgcolor="#1c4c96" style="color: #ffffff; padding: 10px 15px; font-weight: bold; border-top-left-radius: 5px; border-top-right-radius: 5px;">
-                                        Regular Driver 👤
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 15px;">
-                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Contact:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.regularDriver.emailAddress or "N/A" }} | {{ vehicle.regularDriver.mobileNumber or "N/A" }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">ID Number:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.regularDriver.idNumber or "N/A" }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Status:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.regularDriver.maritalStatus }} | {{ "Insured" if vehicle.regularDriver.currentlyInsured else "Uninsured" }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Born:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.regularDriver.dateOfBirth or "N/A" }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; font-weight: bold;">Claims Free:</td>
-                                                <td width="70%" style="padding: 5px 0;">{{ vehicle.regularDriver.yearsWithoutClaims }} years</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
+                            <div class="card">
+                                <div class="card-header">
+                                    👤 Regular Driver
+                                </div>
+                                <div style="padding: 24px;">
+                                    <div class="info-row">
+                                        <div class="info-label">Contact Details</div>
+                                        <div class="info-value">
+                                            <div>📧 {{ vehicle.regularDriver.emailAddress or "N/A" }}</div>
+                                            <div style="margin-top: 4px;">📱 {{ vehicle.regularDriver.mobileNumber or "N/A" }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">ID Number</div>
+                                        <div class="info-value">{{ vehicle.regularDriver.idNumber or "N/A" }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Personal Status</div>
+                                        <div class="info-value">
+                                            <span style="background: #e0e7ff; color: #3730a3; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 500; margin-right: 8px;">{{ vehicle.regularDriver.maritalStatus }}</span>
+                                            <span style="background: {{ '#dcfce7' if vehicle.regularDriver.currentlyInsured else '#fef2f2' }}; color: {{ '#166534' if vehicle.regularDriver.currentlyInsured else '#991b1b' }}; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 500;">{{ "Insured" if vehicle.regularDriver.currentlyInsured else "Uninsured" }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Date of Birth</div>
+                                        <div class="info-value">{{ vehicle.regularDriver.dateOfBirth or "N/A" }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Claims Free Period</div>
+                                        <div class="info-value">
+                                            <span style="background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">{{ vehicle.regularDriver.yearsWithoutClaims }} years</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
                             <!-- Address Information -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 5px;">
-                                <tr>
-                                    <td bgcolor="#1c4c96" style="color: #ffffff; padding: 10px 15px; font-weight: bold; border-top-left-radius: 5px; border-top-right-radius: 5px;">
-                                        Address Information 📍
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 15px;">
-                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Street:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.address.addressLine }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Location:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ vehicle.address.suburb }}, {{ vehicle.address.postalCode }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; font-weight: bold;">Parking:</td>
-                                                <td width="70%" style="padding: 5px 0;">{{ vehicle.overnightParkingSituation or "N/A" }}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
+                            <div class="card">
+                                <div class="card-header">
+                                    📍 Address Information
+                                </div>
+                                <div style="padding: 24px;">
+                                    <div class="info-row">
+                                        <div class="info-label">Street Address</div>
+                                        <div class="info-value">{{ vehicle.address.addressLine }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Location</div>
+                                        <div class="info-value">{{ vehicle.address.suburb }}, {{ vehicle.address.postalCode }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Parking Situation</div>
+                                        <div class="info-value">{{ vehicle.overnightParkingSituation or "N/A" }}</div>
+                                    </div>
+                                </div>
+                            </div>
                             {% endfor %}
 
-                            <p style="color: #6c757d; margin-top: 20px;">This notification was automatically generated by the Surestrat API system. Please do not reply to this email.</p>
+                            {% if quote_response %}
+                            <!-- Quote Response -->
+                            <div class="card">
+                                <div class="card-header">
+                                    💰 Pineapple Quote Response
+                                    <span class="badge" style="float: right; background: linear-gradient(135deg, #059669 0%, #047857 100%);">SUCCESS</span>
+                                </div>
+                                <div style="padding: 24px;">
+                                    {% if quote_response.quoteId %}
+                                    <div class="info-row">
+                                        <div class="info-label">Pineapple Quote ID</div>
+                                        <div class="info-value" style="font-weight: 600; color: #059669; font-family: 'Monaco', 'Menlo', monospace; background: #f0fdf4; padding: 6px 12px; border-radius: 6px; display: inline-block;">{{ quote_response.quoteId }}</div>
+                                    </div>
+                                    {% endif %}
+                                    <div class="info-row">
+                                        <div class="info-label">Monthly Premium</div>
+                                        <div class="info-value">
+                                            <span style="font-size: 20px; font-weight: 700; color: #059669;">R{{ "{:,.2f}".format(quote_response.premium) }}</span>
+                                            <span style="color: var(--text-secondary); font-size: 14px; margin-left: 8px;">per month</span>
+                                        </div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Excess Amount</div>
+                                        <div class="info-value">
+                                            <span style="font-size: 18px; font-weight: 600; color: #dc2626;">R{{ "{:,}".format(quote_response.excess) }}</span>
+                                            <span style="color: var(--text-secondary); font-size: 14px; margin-left: 8px;">per claim</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Footer Message -->
+                            <div class="footer-message" style="border-radius: 12px; padding: 20px; margin-top: 32px;">
+                                <p style="margin: 0; color: var(--text-secondary); font-size: 14px; line-height: 1.5;">
+                                    <strong style="color: var(--text-primary);">Automated Notification</strong><br>
+                                    This notification was automatically generated by the Surestrat API system. Please do not reply to this email.
+                                </p>
+                            </div>
                         </td>
                     </tr>
 
                     <!-- Footer -->
                     <tr>
-                        <td bgcolor="#f8f9fa" style="padding: 15px; color: #6c757d; font-size: 12px; text-align: center; border-top: 1px solid #dee2e6;">
-                            &copy; {{ now.year if now else "2025" }} Surestrat. All rights reserved.
+                        <td style="padding: 0;">
+                            <div class="footer-main" style="padding: 24px 32px; text-align: center; border-radius: 0 0 16px 16px;">
+                                <p style="margin: 0; color: var(--text-muted); font-size: 12px; font-weight: 500;">
+                                    &copy; {{ now.year if now else "2025" }} Surestrat. All rights reserved.
+                                </p>
+                                <p style="margin: 8px 0 0; color: var(--text-muted); font-size: 11px; opacity: 0.7;">
+                                    Powered by advanced insurance technology
+                                </p>
+                            </div>
                         </td>
                     </tr>
                 </table>

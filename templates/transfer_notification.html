@@ -4,117 +4,303 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lead Transfer Notification</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        /* Light mode (default) */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --bg-tertiary: #f3f4f6;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --text-muted: #9ca3af;
+            --border-color: #f3f4f6;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            --shadow-large: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --success-bg: #d1fae5;
+            --success-text: #065f46;
+            --success-border: #10b981;
+            --error-bg: #fee2e2;
+            --error-text: #991b1b;
+            --error-border: #ef4444;
+        }
+        
+        /* Dark mode */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #1f2937;
+                --bg-secondary: #111827;
+                --bg-tertiary: #374151;
+                --text-primary: #f9fafb;
+                --text-secondary: #d1d5db;
+                --text-muted: #9ca3af;
+                --border-color: #374151;
+                --shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+                --shadow-large: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+                --success-bg: #064e3b;
+                --success-text: #6ee7b7;
+                --success-border: #10b981;
+                --error-bg: #7f1d1d;
+                --error-text: #fca5a5;
+                --error-border: #ef4444;
+            }
+        }
+        
+        .icon {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .card {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 24px;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .info-row {
+            display: flex;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            flex: 0 0 35%;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        .info-value {
+            flex: 1;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        
+        .status-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        .status-error {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        
+        .alert-success {
+            background: var(--success-bg);
+            color: var(--success-text);
+            border-left: 4px solid var(--success-border);
+        }
+        
+        .alert-error {
+            background: var(--error-bg);
+            color: var(--error-text);
+            border-left: 4px solid var(--error-border);
+        }
+        
+        .email-container {
+            background-color: var(--bg-primary);
+            box-shadow: var(--shadow-large);
+        }
+        
+        .email-body {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+        }
+        
+        .footer-message {
+            background: var(--bg-secondary);
+            border-left: 4px solid #667eea;
+        }
+        
+        .footer-main {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .status-badge {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+        
+        .error-code {
+            background: var(--error-bg);
+            color: var(--error-text);
+            border-left: 4px solid var(--error-border);
+        }
+        
+        .header-title {
+            color: white !important;
+        }
+        
+        .header-subtitle {
+            color: rgba(255, 255, 255, 0.8) !important;
+        }
+    </style>
 </head>
-<body bgcolor="#f8f9fa" style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif;">
+<body style="margin: 0; padding: 0; background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
     <!-- Main wrapper table -->
-    <table border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#f8f9fa">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" class="email-body">
         <tr>
-            <td align="center" style="padding: 20px;">
+            <td align="center" style="padding: 40px 20px;">
                 <!-- Email container -->
-                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 5px;">
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" class="email-container" style="max-width: 640px; border-radius: 16px;">
                     <!-- Header -->
                     <tr>
-                        <td align="center" bgcolor="{{ '#28a745' if success else '#dc3545' }}" style="padding: 20px; color: #ffffff; border-top-left-radius: 5px; border-top-right-radius: 5px;">
-                            <h2 style="margin: 0; font-size: 22px; font-weight: bold;">
-                                {% if success %}✅ Lead Transfer Success{% else %}⚠️ Lead Transfer Failed{% endif %}
-                            </h2>
+                        <td style="padding: 0;">
+                            <div style="background: {{ 'linear-gradient(135deg, #10b981 0%, #059669 100%)' if success else 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}; padding: 32px 32px 24px; border-radius: 16px 16px 0 0; text-align: center;">
+                                <div style="width: 56px; height: 56px; background: rgba(255, 255, 255, 0.15); border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                                    {% if success %}✅{% else %}⚠️{% endif %}
+                                </div>
+                                <h1 class="header-title" style="margin: 0; font-size: 24px; font-weight: 700; color: white; letter-spacing: -0.025em;">
+                                    {% if success %}Transfer Successful{% else %}Transfer Failed{% endif %}
+                                </h1>
+                                <p class="header-subtitle" style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.8); font-size: 14px;">
+                                    {% if success %}Lead has been transferred to Pineapple{% else %}There was an issue with the lead transfer{% endif %}
+                                </p>
+                            </div>
                         </td>
                     </tr>
 
                     <!-- Content -->
                     <tr>
-                        <td style="padding: 20px;">
+                        <td style="padding: 32px;">
                             <!-- Status message -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px;">
-                                <tr>
-                                    <td bgcolor="{{ '#d4edda' if success else '#f8d7da' }}" style="{{ 'color: #155724; border: 1px solid #c3e6cb;' if success else 'color: #721c24; border: 1px solid #f5c6cb;' }} border-radius: 5px; padding: 15px; text-align: center; font-weight: bold;">
-                                        {{ status_line }}
-                                    </td>
-                                </tr>
-                            </table>
+                            <div style="margin-bottom: 24px;">
+                                <div class="{{ 'alert-success' if success else 'alert-error' }}" style="border-radius: 12px; padding: 20px; text-align: center; font-weight: 600; font-size: 16px;">
+                                    {{ status_line }}
+                                </div>
+                            </div>
 
                             <!-- Customer Info -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 5px;">
-                                <tr>
-                                    <td bgcolor="#1c4c96" style="color: #ffffff; padding: 10px 15px; font-weight: bold; border-top-left-radius: 5px; border-top-right-radius: 5px;">
-                                        Customer Information 👤
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 15px;">
-                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Name:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ transfer.customer_info.first_name }} {{ transfer.customer_info.last_name }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Email:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ transfer.customer_info.email }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Contact:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ transfer.customer_info.contact_number }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">ID Number:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ transfer.customer_info.id_number or "N/A" }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; font-weight: bold;">Quote ID:</td>
-                                                <td width="70%" style="padding: 5px 0;">{{ transfer.customer_info.quote_id or "N/A" }}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
+                            <div class="card">
+                                <div class="card-header">
+                                    👤 Customer Information
+                                </div>
+                                <div style="padding: 24px;">
+                                    <div class="info-row">
+                                        <div class="info-label">Full Name</div>
+                                        <div class="info-value" style="font-weight: 600;">{{ transfer.customer_info.first_name }} {{ transfer.customer_info.last_name }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Email Address</div>
+                                        <div class="info-value">📧 {{ transfer.customer_info.email }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Contact Number</div>
+                                        <div class="info-value">📱 {{ transfer.customer_info.contact_number }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">ID Number</div>
+                                        <div class="info-value">{{ transfer.customer_info.id_number or "N/A" }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Quote Reference</div>
+                                        <div class="info-value">
+                                            {% if transfer.customer_info.quote_id %}
+                                                <span class="status-badge" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">{{ transfer.customer_info.quote_id }}</span>
+                                            {% else %}
+                                                N/A
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Transfer Time (SAST)</div>
+                                        <div class="info-value">
+                                            {% if now %}
+                                                <span style="font-weight: 600;">{{ now.strftime("%d %B %Y") }}</span>
+                                                <span style="margin-left: 8px; color: var(--text-secondary);">at</span>
+                                                <span style="margin-left: 8px; font-weight: 600; color: #667eea;">{{ now.strftime("%H:%M:%S") }}</span>
+                                                <span style="margin-left: 8px; font-size: 12px; color: var(--text-secondary); background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px;">+02:00</span>
+                                            {% else %}
+                                                N/A
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
                             <!-- Agent Info -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 5px;">
-                                <tr>
-                                    <td bgcolor="#1c4c96" style="color: #ffffff; padding: 10px 15px; font-weight: bold; border-top-left-radius: 5px; border-top-right-radius: 5px;">
-                                        Agent Information 🏢
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 15px;">
-                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6; font-weight: bold;">Agent:</td>
-                                                <td width="70%" style="padding: 5px 0; border-bottom: 1px solid #dee2e6;">{{ transfer.agent_info.agent_name }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30%" style="padding: 5px 0; font-weight: bold;">Branch:</td>
-                                                <td width="70%" style="padding: 5px 0;">{{ transfer.agent_info.branch_name }}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
+                            <div class="card">
+                                <div class="card-header">
+                                    🏢 Agent Information
+                                </div>
+                                <div style="padding: 24px;">
+                                    <div class="info-row">
+                                        <div class="info-label">Agent Email</div>
+                                        <div class="info-value" style="font-weight: 600; color: #667eea;">{{ transfer.agent_info.agent_email }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">Branch Name</div>
+                                        <div class="info-value">
+                                            <span class="status-badge" style="padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 500;">{{ transfer.agent_info.branch_name }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
                             {% if not success and error_message %}
                             <!-- Error Details -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 5px;">
-                                <tr>
-                                    <td bgcolor="#1c4c96" style="color: #ffffff; padding: 10px 15px; font-weight: bold; border-top-left-radius: 5px; border-top-right-radius: 5px;">
-                                        Error Details ⚠️
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 15px; color: #dc3545;">
+                            <div class="card">
+                                <div class="card-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                                    ⚠️ Error Details
+                                </div>
+                                <div style="padding: 24px;">
+                                    <div class="error-code" style="padding: 16px; border-radius: 8px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 13px; line-height: 1.4;">
                                         {{ error_message }}
-                                    </td>
-                                </tr>
-                            </table>
+                                    </div>
+                                </div>
+                            </div>
                             {% endif %}
 
-                            <p style="color: #6c757d; margin-top: 20px;">This notification was automatically generated by the Surestrat API system. Please do not reply to this email.</p>
+                            <!-- Footer Message -->
+                            <div class="footer-message" style="border-radius: 12px; padding: 20px; margin-top: 32px;">
+                                <p style="margin: 0; color: var(--text-secondary); font-size: 14px; line-height: 1.5;">
+                                    <strong style="color: var(--text-primary);">Automated Notification</strong><br>
+                                    This notification was automatically generated by the Surestrat API system. Please do not reply to this email.
+                                </p>
+                            </div>
                         </td>
                     </tr>
 
                     <!-- Footer -->
                     <tr>
-                        <td bgcolor="#f8f9fa" style="padding: 15px; color: #6c757d; font-size: 12px; text-align: center; border-top: 1px solid #dee2e6;">
-                            &copy; {{ now.year if now else "2025" }} Surestrat. All rights reserved.
+                        <td style="padding: 0;">
+                            <div class="footer-main" style="padding: 24px 32px; text-align: center; border-radius: 0 0 16px 16px;">
+                                <p style="margin: 0; color: var(--text-muted); font-size: 12px; font-weight: 500;">
+                                    &copy; {{ now.year if now else "2025" }} Surestrat. All rights reserved.
+                                </p>
+                                <p style="margin: 8px 0 0; color: var(--text-muted); font-size: 11px; opacity: 0.7;">
+                                    Powered by advanced insurance technology
+                                </p>
+                            </div>
                         </td>
                     </tr>
                 </table>

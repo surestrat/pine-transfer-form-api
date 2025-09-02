@@ -63,6 +63,8 @@ class Vehicle(BaseModel):
 class QuoteRequest(BaseModel):
     source: str
     externalReferenceId: str
+    agentEmail: Optional[EmailStr] = None
+    agentBranch: Optional[str] = None
     vehicles: list[Vehicle]
     model_config = {
         "extra": "allow",
@@ -75,6 +77,7 @@ class QuoteRequest(BaseModel):
 class QuoteResponse(BaseModel):
     premium: float
     excess: float
+    quoteId: Optional[str] = None
     model_config = {
         "extra": "allow",
         "validate_assignment": True,

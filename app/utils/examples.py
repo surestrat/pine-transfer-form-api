@@ -8,14 +8,16 @@ import json
 
 def get_quote_example() -> Dict[str, Any]:
     """
-    Returns an example payload for the quick quote endpoint that matches the Postman collection.
+    Returns an example payload for the quick quote endpoint.
 
-    This is properly formatted with date strings in ISO format (YYYY-MM-DD)
-    which JSON can handle without serialization issues.
+    This shows the complete structure expected by the API, including all optional fields.
+    The externalReferenceId is used for tracking quotes across systems.
     """
     return {
         "source": "SureStrat",  # Note: Case sensitive, must be "SureStrat" not "Surestrat"
         "externalReferenceId": "12345678910",  # Match Postman collection example
+        "agentEmail": "agent@email.com",
+        "agentBranch": "lenasiaHO",
         "vehicles": [
             {
                 "year": 2019,
@@ -64,9 +66,10 @@ def get_quote_example() -> Dict[str, Any]:
 
 def get_transfer_example() -> Dict[str, Any]:
     """
-    Returns an example payload for the transfer form endpoint that matches the Postman collection.
+    Returns an example payload for the transfer form endpoint.
 
-    Contains all necessary fields for a vehicle transfer request based on defined schemas.
+    Shows the complete structure for transferring a lead to Pineapple,
+    including customer and agent information.
     """
     return {
         "customer_info": {
@@ -75,11 +78,10 @@ def get_transfer_example() -> Dict[str, Any]:
             "email": "peterSmith007@pineapple.co.za",
             "contact_number": "0737111119",
             "id_number": "9510025800086",
-            "quote_id": "67977c1c4130345e85bb7572",
-            "source": "SureStrat",  # Note: Case sensitive, must be "SureStrat" not "Surestrat"
+            "quote_id": "67977c1c4130345e85bb7572"
         },
         "agent_info": {
-            "agent_name": "John Doe",
+            "agent_email": "john.doe@surestrat.co.za",
             "branch_name": "Sandton",
         },
     }
@@ -89,14 +91,11 @@ def get_transfer_response_example() -> Dict[str, Any]:
     """
     Returns an example response for the transfer form endpoint.
 
-    Follows the ExTransferResponse schema for Swagger documentation.
+    Follows the TransferResponse schema for Swagger documentation.
     """
     return {
-        "success": True,
-        "data": {
-            "uuid": "12345678-1234-5678-1234-567812345678",
-            "redirect_url": "https://example.com/form/12345678-1234-5678-1234-567812345678",
-        },
+        "uuid": "12345678-1234-5678-1234-567812345678",
+        "redirect_url": "https://portal.pineapple.co.za/quote/12345678-1234-5678-1234-567812345678"
     }
 
 
@@ -104,13 +103,10 @@ def get_transfer_error_example() -> Dict[str, Any]:
     """
     Returns an example error response for the transfer form endpoint.
 
-    Follows the ExTransferResponse schema with an error for Swagger documentation.
+    Shows the actual error format returned by the API.
     """
     return {
-        "success": False,
-        "data": None,
-        "error_message": "Failed to process transfer request: Invalid customer information",
-        "message": "Transfer failed",
+        "detail": "Failed to transfer lead to Pineapple API: Invalid customer information"
     }
 
 
@@ -118,17 +114,12 @@ def get_quote_response_example() -> Dict[str, Any]:
     """
     Returns an example successful response for the quote endpoint.
 
-    Follows the ExQuoteResponse schema for Swagger documentation.
+    Follows the QuoteResponse schema for Swagger documentation.
     """
     return {
-        "success": True,
-        "id": "12345678-1234-5678-1234-567812345678",
-        "data": [
-            {
-            "premium": 1250.00,
-            "excess": 5000,
-            }
-        ],
+        "premium": 1250.75,
+        "excess": 3500.00,
+        "quoteId": "QUO-2024-001234"
     }
 
 
@@ -136,14 +127,10 @@ def get_quote_error_example() -> Dict[str, Any]:
     """
     Returns an example error response for the quote endpoint.
 
-    Follows the ExQuoteResponse schema with an error for Swagger documentation.
+    Shows the actual error format returned by the API.
     """
     return {
-        "success": False,
-        "message": "Quote failed",
-        "id": None,
-        "data": None,
-        "error_message": "Failed to generate quote: Vehicle not eligible for coverage",
+        "detail": "Failed to get quote from Pineapple API: Invalid vehicle data"
     }
 
 

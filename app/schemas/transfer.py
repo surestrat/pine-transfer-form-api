@@ -14,11 +14,12 @@ class CustomerInfo(BaseModel):
 
 
 class AgentInfo(BaseModel):
-    agent_name: str
+    agent_email: str
     branch_name: str
 
 class ExTransferRequest(BaseModel):
     customer_info: CustomerInfo
+    agent_info: AgentInfo
     model_config = {
         "extra": "allow",
         "validate_assignment": True,
