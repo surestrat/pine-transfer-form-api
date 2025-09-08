@@ -66,9 +66,9 @@ class Settings(BaseSettings):
     APPWRITE_ENDPOINT: str | None = os.getenv("APPWRITE_ENDPOINT")
     APPWRITE_PROJECT_ID: str | None = os.getenv("APPWRITE_PROJECT_ID")
     APPWRITE_API_KEY: str | None = os.getenv("APPWRITE_API_KEY")
-    DATABASE_ID: str | None = os.getenv("APPWRITE_DATABASE_ID")
-    QUOTE_COL_ID: str | None = os.getenv("APPWRITE_LEAD_QUOTE_COL_ID")
-    TRANSFER_COL_ID: str | None = os.getenv("APPWRITE_LEAD_TRANSFER_COL_ID")
+    DATABASE_ID: str | None = os.getenv("DATABASE_ID")
+    QUOTE_COL_ID: str | None = os.getenv("QUOTE_COL_ID")
+    TRANSFER_COL_ID: str | None = os.getenv("TRANSFER_COL_ID")
 
     # Email settings
     SMTP_SERVER: str | None = os.getenv("SMTP_SERVER")

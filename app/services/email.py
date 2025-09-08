@@ -76,9 +76,21 @@ class EmailService:
                 **template_context
             )  # Use ** to unpack the dict as keyword args
         except Exception as e:
-            self.logger.error(f"Template rendering error: {str(e)}")
+            self.logger.error(f"Template rendering error for '{template_name}': {str(e)}")
+            self.logger.error(f"Template context keys: {list(template_context.keys())}")
             # Return a basic fallback message if template rendering fails
-            return f"<p>An error occurred while rendering the email template. Please contact support.</p>"
+            return f"""
+            <html>
+            <body>
+                <h2>Email Notification</h2>
+                <p>An error occurred while rendering the email template '{template_name}'.</p>
+                <p>Error details: {str(e)}</p>
+                <p>Please contact support if this issue persists.</p>
+                <hr>
+                <p><small>Context available: {', '.join(template_context.keys())}</small></p>
+            </body>
+            </html>
+            """
 
     def _parse_recipients(self, recipients: Union[List[str], str]) -> List[str]:
         """

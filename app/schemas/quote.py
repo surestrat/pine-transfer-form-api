@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, NonNegativeInt
-from typing import Optional
-from datetime import date
+from typing import Optional, Any, Dict
+from datetime import date, datetime
 from app.utils.examples import get_quote_example, get_quote_response_example
 
 class Address(BaseModel):
@@ -84,4 +84,25 @@ class QuoteResponse(BaseModel):
         "json_schema_extra": {
             "example": get_quote_response_example()
         }
+    }
+
+
+class QuoteRetrievalResponse(BaseModel):
+    """Response model for GET /api/v1/quote/{quote_id} endpoint"""
+    id: str
+    source: str
+    internalReference: str
+    status: str
+    vehicles: list[Dict[str, Any]]  # Vehicles stored as JSON in Appwrite
+    premium: Optional[str] = None  # Stored as string in Appwrite
+    excess: Optional[str] = None   # Stored as string in Appwrite
+    quoteId: Optional[str] = None
+    agentEmail: Optional[str] = None
+    agentBranch: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    
+    model_config = {
+        "extra": "allow",
+        "validate_assignment": True,
     }

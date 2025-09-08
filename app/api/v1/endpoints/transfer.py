@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks
 from app.schemas.transfer import InTransferRequest, ExTransferRequest, TransferResponse
 from app.services.transfer import (
     store_transfer_request,
@@ -7,6 +7,12 @@ from app.services.transfer import (
     check_existing_transfer,
 )
 from app.services.email import EmailService
+from app.utils.exceptions import (
+    TransferDuplicateError,
+    TransferStorageError,
+    TransferAPIError,
+    TransferResponseError
+)
 import logging
 from datetime import datetime
 from config.settings import settings
@@ -48,40 +54,31 @@ async def create_transfer(
     )
 
     if existing_transfer:
+        # Get the source and matched field from the duplicate check
+        source = existing_transfer.get("source", "database")
+        matched_field = existing_transfer.get("matched_field", "ID number")
+        
         # Format the submission date
         created_at = existing_transfer.get("$createdAt", "")
-        if created_at:
-            try:
-                # Parse the ISO timestamp and format it nicely
-                dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-                formatted_date = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-            except:
-                formatted_date = created_at
-        else:
-            formatted_date = "unknown date"
-
-        # Determine which field matched
-        matched_field = "ID number"
-        if transfer.customer_info.id_number and existing_transfer.get("id_number") == transfer.customer_info.id_number:
-            matched_field = "ID number"
-        elif transfer.customer_info.contact_number and existing_transfer.get("contact_number") == transfer.customer_info.contact_number:
-            matched_field = "contact number"
+        transfer_id = existing_transfer.get("$id", "unknown")
 
         if not settings.IS_PRODUCTION:
             logger.warning(f"🚫 [DEV] [REQUEST-{request_id}] DUPLICATE DETECTED!")
+            logger.warning(f"🚫 [DEV] [REQUEST-{request_id}] Source: {source}")
             logger.warning(f"🚫 [DEV] [REQUEST-{request_id}] Matched field: {matched_field}")
-            logger.warning(f"🚫 [DEV] [REQUEST-{request_id}] Original submission: {formatted_date}")
-            logger.warning(f"🚫 [DEV] [REQUEST-{request_id}] Existing transfer ID: {existing_transfer.get('$id')}")
+            logger.warning(f"🚫 [DEV] [REQUEST-{request_id}] Original submission: {created_at}")
+            logger.warning(f"🚫 [DEV] [REQUEST-{request_id}] Existing transfer ID: {transfer_id}")
 
         logger.warning(
             f"Duplicate transfer attempt for {matched_field}: {transfer.customer_info.id_number or transfer.customer_info.contact_number}. "
-            f"Existing transfer ID: {existing_transfer.get('$id')}, submitted on: {formatted_date}"
+            f"Source: {source}, Transfer ID: {transfer_id}, submitted on: {created_at}"
         )
-        raise HTTPException(
-            status_code=409,
-            detail=f"Transfer already exists for this {matched_field}. "
-                   f"Existing transfer ID: {existing_transfer.get('$id')}, "
-                   f"submitted on: {formatted_date}"
+        
+        raise TransferDuplicateError(
+            submission_date=created_at,
+            transfer_id=str(transfer_id),
+            matched_field=matched_field,
+            source=source
         )
 
     # Store the transfer request (with agent/branch info)
@@ -99,7 +96,7 @@ async def create_transfer(
         if not settings.IS_PRODUCTION:
             logger.error(f"❌ [DEV] [REQUEST-{request_id}] Failed to store transfer: {str(e)}")
         logger.error(f"Failed to store transfer: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to store transfer request")
+        raise TransferStorageError(str(e))
 
     # Prepare ExTransferRequest for external API (includes agent_email & branch_name)
     if not settings.IS_PRODUCTION:
@@ -117,9 +114,7 @@ async def create_transfer(
         if not settings.IS_PRODUCTION:
             logger.error(f"❌ [DEV] [REQUEST-{request_id}] Pineapple API error: {pineapple_response['error']}")
         logger.error(f"Pineapple API error: {pineapple_response['error']}")
-        raise HTTPException(
-            status_code=502, detail="Failed to transfer lead to Pineapple API"
-        )
+        raise TransferAPIError(pineapple_response['error'])
 
     if not settings.IS_PRODUCTION:
         logger.info(f"✅ [DEV] [REQUEST-{request_id}] Pineapple API response received successfully")
@@ -150,28 +145,38 @@ async def create_transfer(
         if not settings.IS_PRODUCTION:
             logger.error(f"❌ [DEV] [REQUEST-{request_id}] Failed to parse/store Pineapple response: {str(e)}")
         logger.error(f"Failed to parse or store Pineapple transfer response: {str(e)}")
-        raise HTTPException(
-            status_code=502, detail="Invalid response from Pineapple API"
-        )
+        raise TransferResponseError(str(e))
 
     # Prepare email notification as background task
     if not settings.IS_PRODUCTION:
         logger.info(f"📧 [DEV] [REQUEST-{request_id}] Queuing email notification...")
     
-    # Prepare agent email for CC if available
-    agent_email = transfer.agent_info.agent_email if transfer.agent_info.agent_email else None
-    
-    if not settings.IS_PRODUCTION and agent_email:
-        logger.info(f"📧 [DEV] [REQUEST-{request_id}] Agent will be CC'd: {agent_email}")
-    
-    background_tasks.add_task(
-        email_service.send_transfer_email,
-        recipient=email_service.admin_emails,
-        transfer_data=transfer,
-        success=True,
-        error_message=None,
-        cc=agent_email,
-    )
+    # Check if transfer notifications are enabled
+    if settings.SEND_TRANSFER_NOTIFICATIONS:
+        # Prepare agent email for CC if available
+        agent_email = transfer.agent_info.agent_email if transfer.agent_info.agent_email else None
+        
+        if not settings.IS_PRODUCTION and agent_email:
+            logger.info(f"📧 [DEV] [REQUEST-{request_id}] Agent will be CC'd: {agent_email}")
+        
+        # Add BCC if configured
+        bcc_emails = settings.ADMIN_BCC_EMAILS if hasattr(settings, 'ADMIN_BCC_EMAILS') and settings.ADMIN_BCC_EMAILS else None
+        
+        background_tasks.add_task(
+            email_service.send_transfer_email,
+            recipient=settings.ADMIN_EMAILS,  # Use settings directly instead of email_service.admin_emails
+            transfer_data=transfer,
+            success=True,
+            error_message=None,
+            cc=agent_email,
+            bcc=bcc_emails
+        )
+        
+        if not settings.IS_PRODUCTION:
+            logger.info(f"📧 [DEV] [REQUEST-{request_id}] Transfer notification email queued")
+    else:
+        if not settings.IS_PRODUCTION:
+            logger.info(f"📧 [DEV] [REQUEST-{request_id}] Transfer notifications disabled in settings")
 
     if not settings.IS_PRODUCTION:
         logger.info(f"🎉 [DEV] [REQUEST-{request_id}] Transfer completed successfully!")

@@ -1,11 +1,17 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException
-from app.schemas.quote import QuoteRequest, QuoteResponse
+from app.schemas.quote import QuoteRequest, QuoteResponse, QuoteRetrievalResponse
 from app.services.quote import (
     store_quote_request,
     send_quote_request,
     update_quote_response,
+    get_quote_by_id,
 )
 from app.services.email import EmailService
+from app.utils.exceptions import (
+    QuoteStorageError,
+    QuoteAPIError,
+    QuoteResponseError
+)
 import httpx
 import logging
 from datetime import datetime
@@ -63,12 +69,12 @@ async def create_quote(quote: QuoteRequest, background_tasks: BackgroundTasks):
                 if not settings.IS_PRODUCTION:
                     logger.error(f"❌ [DEV] [REQUEST-{request_id}] Failed to store quote: {str(e)}")
                 logger.error(f"Failed to store quote: {str(e)}")
-                raise HTTPException(status_code=500, detail="Failed to store quote request")
+                raise QuoteStorageError(str(e))
     except Exception as e:
         if not settings.IS_PRODUCTION:
             logger.error(f"❌ [DEV] [REQUEST-{request_id}] Final storage error: {str(e)}")
         logger.error(f"Failed to store quote: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to store quote request")
+        raise QuoteStorageError(str(e))
 
     # Send the quote request to Pineapple
     if not settings.IS_PRODUCTION:
@@ -81,9 +87,7 @@ async def create_quote(quote: QuoteRequest, background_tasks: BackgroundTasks):
         if not settings.IS_PRODUCTION:
             logger.error(f"❌ [DEV] [REQUEST-{request_id}] Pineapple API error: {pineapple_response['error']}")
         logger.error(f"Pineapple API error: {pineapple_response['error']}")
-        raise HTTPException(
-            status_code=502, detail=f"Failed to get quote from Pineapple API: {pineapple_response['error']}"
-        )
+        raise QuoteAPIError(pineapple_response['error'])
 
     if not settings.IS_PRODUCTION:
         logger.info(f"✅ [DEV] [REQUEST-{request_id}] Pineapple API response received")
@@ -98,7 +102,7 @@ async def create_quote(quote: QuoteRequest, background_tasks: BackgroundTasks):
                 logger.info(f"Parsed Pineapple response: {pineapple_data_dict}")
             except Exception as e:
                 logger.error(f"Failed to decode Pineapple response as JSON: {str(e)}")
-                raise HTTPException(status_code=502, detail="Invalid JSON from Pineapple API")
+                raise QuoteResponseError("Invalid JSON from Pineapple API")
         elif isinstance(pineapple_response, dict):
             pineapple_data_dict = pineapple_response
             logger.info(f"Parsed Pineapple response: {pineapple_data_dict}")
@@ -106,9 +110,7 @@ async def create_quote(quote: QuoteRequest, background_tasks: BackgroundTasks):
             logger.error(
                 f"Unexpected type for pineapple_response: {type(pineapple_response)}. Expected httpx.Response or dict."
             )
-            raise HTTPException(
-                status_code=502, detail="Invalid response structure from Pineapple API"
-            )
+            raise QuoteResponseError("Invalid response structure from Pineapple API")
 
         # If Pineapple API returns success: False or http_code != 200, return 502
         if not pineapple_data_dict.get("success", True) or pineapple_data_dict.get("http_code", 200) != 200:
@@ -118,12 +120,10 @@ async def create_quote(quote: QuoteRequest, background_tasks: BackgroundTasks):
                 error_message = error_message["message"]
                 # Unwrap one more level if needed
                 if isinstance(error_message, dict) and "message" in error_message:
+                    
                     error_message = error_message["message"]
             logger.error(f"Pineapple API error: {error_message}")
-            raise HTTPException(
-                status_code=502,
-                detail=f"Pineapple API error: {error_message}"
-            )
+            raise QuoteAPIError(str(error_message))
 
         # Extract premium, excess, and id from the response
         # Based on actual Pineapple response structure:
@@ -184,43 +184,150 @@ async def create_quote(quote: QuoteRequest, background_tasks: BackgroundTasks):
         if not settings.IS_PRODUCTION:
             logger.info(f"✅ [DEV] [REQUEST-{request_id}] Quote response stored successfully")
             
-    except HTTPException:
+    except (QuoteStorageError, QuoteAPIError, QuoteResponseError):
+        # Re-raise our custom errors
         raise
     except Exception as e:
         if not settings.IS_PRODUCTION:
             logger.error(f"❌ [DEV] [REQUEST-{request_id}] Failed to parse/store response: {str(e)}")
         logger.error(f"Failed to parse or store Pineapple response: {str(e)}")
-        raise HTTPException(
-            status_code=502, detail=f"Invalid response from Pineapple API: {str(e)}"
-        )
+        raise QuoteResponseError(str(e))
 
     if not settings.IS_PRODUCTION:
         logger.info(f"📧 [DEV] [REQUEST-{request_id}] Queuing email notification...")
 
-    # Prepare agent email for CC if available
-    agent_email = quote.agentEmail if quote.agentEmail else None
-    
-    if not settings.IS_PRODUCTION and agent_email:
-        logger.info(f"📧 [DEV] [REQUEST-{request_id}] Agent will be CC'd: {agent_email}")
-    
-    background_tasks.add_task(
-        email_service.send_email,
-        recipients=email_service.admin_emails,
-        subject="New Quote Request Received",
-        template_name="quote_notification.html",
-        template_context={
-            "quote": quote.model_dump(mode="json"),
-            "quote_response": {
-                "premium": premium,
-                "excess": excess,
-                "quoteId": quote_id
-            }
-        },
-        cc=agent_email,
-    )
+    # Check if quote notifications are enabled
+    if settings.SEND_QUOTE_NOTIFICATIONS:
+        # Prepare agent email for CC if available
+        agent_email = quote.agentEmail if quote.agentEmail else None
+        
+        if not settings.IS_PRODUCTION and agent_email:
+            logger.info(f"📧 [DEV] [REQUEST-{request_id}] Agent will be CC'd: {agent_email}")
+        
+        # Add BCC if configured
+        bcc_emails = settings.ADMIN_BCC_EMAILS if hasattr(settings, 'ADMIN_BCC_EMAILS') and settings.ADMIN_BCC_EMAILS else None
+        
+        background_tasks.add_task(
+            email_service.send_email,
+            recipients=settings.ADMIN_EMAILS,  # Use settings directly instead of email_service.admin_emails
+            subject="New Quote Request Received",
+            template_name="quote_notification.html",
+            template_context={
+                "quote": quote.model_dump(mode="json"),
+                "quote_response": {
+                    "premium": premium,
+                    "excess": excess,
+                    "quoteId": quote_id
+                }
+            },
+            cc=agent_email,
+            bcc=bcc_emails
+        )
+        
+        if not settings.IS_PRODUCTION:
+            logger.info(f"📧 [DEV] [REQUEST-{request_id}] Quote notification email queued")
+    else:
+        if not settings.IS_PRODUCTION:
+            logger.info(f"📧 [DEV] [REQUEST-{request_id}] Quote notifications disabled in settings")
 
     if not settings.IS_PRODUCTION:
         logger.info(f"🎉 [DEV] [REQUEST-{request_id}] Quote completed successfully!")
         logger.info(f"🎉 [DEV] [REQUEST-{request_id}] Final premium: {quote_response.premium}")
 
     return quote_response
+
+
+@router.get(
+    "/quote/{quote_id}",
+    response_model=QuoteRetrievalResponse,
+    tags=["quote"],
+    status_code=200,
+)
+async def get_quote(quote_id: str):
+    """
+    Retrieve a quote by its ID.
+    
+    Args:
+        quote_id: The unique identifier of the quote to retrieve
+        
+    Returns:
+        QuoteRetrievalResponse: The quote information including status, vehicles, and pricing
+        
+    Raises:
+        HTTPException: 404 if quote not found, 500 if server error
+    """
+    logger.info(f"Getting quote with ID: {quote_id}")
+    
+    if not settings.IS_PRODUCTION:
+        logger.info(f"🔍 [DEV] [GET-QUOTE] Retrieving quote ID: {quote_id}")
+    
+    try:
+        # Retrieve quote from database
+        quote_document = await get_quote_by_id(quote_id)
+        
+        if not quote_document:
+            if not settings.IS_PRODUCTION:
+                logger.warning(f"❌ [DEV] [GET-QUOTE] Quote not found: {quote_id}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Quote with ID {quote_id} not found"
+            )
+        
+        if not settings.IS_PRODUCTION:
+            logger.info(f"✅ [DEV] [GET-QUOTE] Quote found: {quote_id}")
+            logger.info(f"📊 [DEV] [GET-QUOTE] Status: {quote_document.get('status', 'UNKNOWN')}")
+        
+        # Handle vehicles field - it's stored as JSON strings in Appwrite
+        vehicles_data = quote_document.get("vehicles", [])
+        processed_vehicles = []
+        
+        if vehicles_data:
+            import json
+            for vehicle_str in vehicles_data:
+                if isinstance(vehicle_str, str):
+                    try:
+                        # Parse JSON string back to dict
+                        vehicle_dict = json.loads(vehicle_str)
+                        processed_vehicles.append(vehicle_dict)
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"Failed to parse vehicle JSON: {vehicle_str}. Error: {e}")
+                        # Keep as string if parsing fails
+                        processed_vehicles.append(vehicle_str)
+                else:
+                    # Already a dict/object
+                    processed_vehicles.append(vehicle_str)
+        
+        # Build response using Appwrite document structure
+        quote_response = QuoteRetrievalResponse(
+            id=quote_document.get("$id", quote_id),
+            source=quote_document.get("source", ""),
+            internalReference=quote_document.get("internalReference", ""),
+            status=quote_document.get("status", "UNKNOWN"),
+            vehicles=processed_vehicles,
+            premium=quote_document.get("premium"),
+            excess=quote_document.get("excess"),
+            quoteId=quote_document.get("quoteId"),
+            agentEmail=quote_document.get("agentEmail"),
+            agentBranch=quote_document.get("agentBranch"),
+            created_at=quote_document.get("$createdAt"),
+            updated_at=quote_document.get("$updatedAt"),
+        )
+        
+        if not settings.IS_PRODUCTION:
+            logger.info(f"🎉 [DEV] [GET-QUOTE] Quote retrieved successfully: {quote_id}")
+            logger.info(f"📊 [DEV] [GET-QUOTE] Vehicles count: {len(processed_vehicles)}")
+        
+        logger.info(f"Successfully retrieved quote: {quote_id}")
+        return quote_response
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 404)
+        raise
+    except Exception as e:
+        if not settings.IS_PRODUCTION:
+            logger.error(f"❌ [DEV] [GET-QUOTE] Server error retrieving quote {quote_id}: {str(e)}")
+        logger.error(f"Server error retrieving quote {quote_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error while retrieving quote: {str(e)}"
+        )

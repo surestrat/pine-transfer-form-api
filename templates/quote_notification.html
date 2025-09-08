@@ -251,6 +251,7 @@
                             </div>
 
                             <!-- Regular Driver -->
+                            {% if vehicle.regularDriver %}
                             <div class="card">
                                 <div class="card-header">
                                     👤 Regular Driver
@@ -270,8 +271,10 @@
                                     <div class="info-row">
                                         <div class="info-label">Personal Status</div>
                                         <div class="info-value">
-                                            <span style="background: #e0e7ff; color: #3730a3; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 500; margin-right: 8px;">{{ vehicle.regularDriver.maritalStatus }}</span>
+                                            <span style="background: #e0e7ff; color: #3730a3; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 500; margin-right: 8px;">{{ vehicle.regularDriver.maritalStatus or "N/A" }}</span>
+                                            {% if vehicle.regularDriver.currentlyInsured is not none %}
                                             <span style="background: {{ '#dcfce7' if vehicle.regularDriver.currentlyInsured else '#fef2f2' }}; color: {{ '#166534' if vehicle.regularDriver.currentlyInsured else '#991b1b' }}; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 500;">{{ "Insured" if vehicle.regularDriver.currentlyInsured else "Uninsured" }}</span>
+                                            {% endif %}
                                         </div>
                                     </div>
                                     <div class="info-row">
@@ -281,13 +284,31 @@
                                     <div class="info-row">
                                         <div class="info-label">Claims Free Period</div>
                                         <div class="info-value">
+                                            {% if vehicle.regularDriver.yearsWithoutClaims is not none %}
                                             <span style="background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">{{ vehicle.regularDriver.yearsWithoutClaims }} years</span>
+                                            {% else %}
+                                            <span style="background: #f3f4f6; color: #6b7280; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">N/A</span>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>
                             </div>
+                            {% else %}
+                            <div class="card">
+                                <div class="card-header">
+                                    👤 Regular Driver
+                                </div>
+                                <div style="padding: 24px;">
+                                    <div class="info-value" style="color: #6b7280; font-style: italic;">
+                                        Driver information not provided
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
 
                             <!-- Address Information -->
+                            <!-- Address Information -->
+                            {% if vehicle.address %}
                             <div class="card">
                                 <div class="card-header">
                                     📍 Address Information
@@ -295,11 +316,11 @@
                                 <div style="padding: 24px;">
                                     <div class="info-row">
                                         <div class="info-label">Street Address</div>
-                                        <div class="info-value">{{ vehicle.address.addressLine }}</div>
+                                        <div class="info-value">{{ vehicle.address.addressLine or "N/A" }}</div>
                                     </div>
                                     <div class="info-row">
                                         <div class="info-label">Location</div>
-                                        <div class="info-value">{{ vehicle.address.suburb }}, {{ vehicle.address.postalCode }}</div>
+                                        <div class="info-value">{{ vehicle.address.suburb or "N/A" }}{% if vehicle.address.postalCode %}, {{ vehicle.address.postalCode }}{% endif %}</div>
                                     </div>
                                     <div class="info-row">
                                         <div class="info-label">Parking Situation</div>
@@ -307,6 +328,18 @@
                                     </div>
                                 </div>
                             </div>
+                            {% else %}
+                            <div class="card">
+                                <div class="card-header">
+                                    📍 Address Information
+                                </div>
+                                <div style="padding: 24px;">
+                                    <div class="info-value" style="color: #6b7280; font-style: italic;">
+                                        Address information not provided
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
                             {% endfor %}
 
                             {% if quote_response %}

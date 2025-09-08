@@ -152,6 +152,55 @@ async def find_quote_by_phone(
         return None
 
 
+async def get_quote_by_id(quote_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Retrieve a quote by its ID from the quote collection.
+    Args:
+        quote_id: The quote ID to search for
+    Returns:
+        Optional[Dict[str, Any]]: The quote document if found, None otherwise
+    """
+    try:
+        if not quote_id:
+            logger.warning("Empty quote_id provided for quote retrieval")
+            return None
+
+        # Get the document directly by ID
+        result = db.get_document_by_id(
+            document_id=quote_id,
+            collection_type="quote"
+        )
+        
+        # Check if result contains error
+        if isinstance(result, dict) and "error" in result:
+            error_msg = result["error"]
+            # Check if it's a 404 error (document not found)
+            if "404" in str(error_msg) or "Document with the requested ID could not be found" in str(error_msg):
+                logger.info(f"Quote not found with ID: {quote_id}")
+                return None
+            else:
+                logger.error(f"Appwrite error retrieving quote {quote_id}: {error_msg}")
+                raise Exception(f"Database error: {error_msg}")
+        
+        # Extract the actual document from the "data" field
+        if isinstance(result, dict) and "data" in result:
+            document = result["data"]
+            # Ensure document is a dict before returning
+            if isinstance(document, dict):
+                logger.info(f"Retrieved quote with ID: {quote_id}")
+                return document
+            else:
+                logger.warning(f"Document data is not a dict: {type(document)}")
+                return None
+        else:
+            logger.warning(f"Unexpected result format from get_document_by_id: {result}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error retrieving quote by ID {quote_id}: {str(e)}")
+        raise
+
+
 async def send_quote_request(
     quote_data: QuoteRequest,
     request_id: Optional[str] = None,

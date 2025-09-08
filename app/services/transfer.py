@@ -164,6 +164,63 @@ async def check_existing_transfer_by_contact_number(
         return None
 
 
+async def check_pineapple_duplicate(
+    id_number: Optional[str] = None,
+    contact_number: Optional[str] = None,
+    request_id: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Check if a lead already exists in Pineapple's system (90-day retention).
+    
+    Args:
+        id_number: The ID number to check
+        contact_number: The contact number to check
+        request_id: Optional ID for logging/tracking
+        
+    Returns:
+        Optional[Dict[str, Any]]: Pineapple lead data if duplicate found, None otherwise
+    """
+    try:
+        if not id_number and not contact_number:
+            logger.warning(f"[{request_id}] No ID number or contact number provided for Pineapple duplicate check")
+            return None
+
+        # For now, we'll add a placeholder for Pineapple duplicate checking
+        # This would need to be implemented once Pineapple provides an endpoint
+        # to check for existing leads by ID number or contact number
+        
+        # TODO: Implement actual Pineapple API call to check for duplicates
+        # Example structure:
+        # check_payload = {
+        #     "id_number": id_number,
+        #     "contact_number": contact_number
+        # }
+        # 
+        # async with httpx.AsyncClient(timeout=10.0) as client:
+        #     response = await client.post(
+        #         url=f"{settings.PINEAPPLE_BASE_URL}/api/v1/leads/check",
+        #         headers={
+        #             "Content-Type": "application/json",
+        #             "Authorization": f"Bearer KEY={settings.PINEAPPLE_API_KEY} SECRET={settings.PINEAPPLE_API_SECRET}",
+        #         },
+        #         json=check_payload,
+        #     )
+        #     
+        #     if response.status_code == 200:
+        #         result = response.json()
+        #         if result.get("exists"):
+        #             return result.get("lead_data")
+        
+        if not settings.IS_PRODUCTION:
+            logger.info(f"🔍 [DEV] [{request_id}] Pineapple duplicate check - placeholder (not implemented yet)")
+            
+        logger.info(f"[{request_id}] Pineapple duplicate check not yet implemented")
+        return None
+        
+    except Exception as e:
+        logger.error(f"[{request_id}] Error checking Pineapple for duplicates: {str(e)}")
+        # Don't fail the request if Pineapple check fails - just log and continue
+        return None
 async def check_existing_transfer(
     id_number: Optional[str] = None,
     contact_number: Optional[str] = None,
@@ -171,6 +228,7 @@ async def check_existing_transfer(
 ) -> Optional[Dict[str, Any]]:
     """
     Check if a transfer already exists for the given ID number or contact number.
+    Checks both local database and Pineapple's system (90-day retention).
 
     Args:
         id_number: The ID number to check (optional)
@@ -179,19 +237,56 @@ async def check_existing_transfer(
 
     Returns:
         Optional[Dict[str, Any]]: The existing transfer document if found, None otherwise
+        The returned dict includes a "source" field indicating where the duplicate was found
     """
+    
+    # Check local database first (more specific and faster)
+    if not settings.IS_PRODUCTION:
+        logger.info(f"🔍 [DEV] [{request_id}] Starting duplicate check - database first")
+    
     # Check by ID number first (more specific)
     if id_number:
         existing_by_id = await check_existing_transfer_by_id_number(id_number, request_id)
         if existing_by_id:
+            existing_by_id["source"] = "database"
+            existing_by_id["matched_field"] = "ID number"
             return existing_by_id
 
     # Check by contact number if ID number didn't find anything
     if contact_number:
         existing_by_contact = await check_existing_transfer_by_contact_number(contact_number, request_id)
         if existing_by_contact:
+            existing_by_contact["source"] = "database"
+            existing_by_contact["matched_field"] = "contact number"
             return existing_by_contact
+    
+    # If no duplicates found in database, check Pineapple system
+    if not settings.IS_PRODUCTION:
+        logger.info(f"🔍 [DEV] [{request_id}] No database duplicates found, checking Pineapple system")
+        
+    pineapple_duplicate = await check_pineapple_duplicate(id_number, contact_number, request_id)
+    if pineapple_duplicate:
+        # Format Pineapple response to match our expected structure
+        pineapple_duplicate["source"] = "pineapple"
+        pineapple_duplicate["$id"] = pineapple_duplicate.get("lead_id", "unknown")
+        pineapple_duplicate["$createdAt"] = pineapple_duplicate.get("created_at", "unknown")
+        
+        # Determine which field matched
+        if id_number and pineapple_duplicate.get("id_number") == id_number:
+            pineapple_duplicate["matched_field"] = "ID number"
+        elif contact_number and pineapple_duplicate.get("contact_number") == contact_number:
+            pineapple_duplicate["matched_field"] = "contact number"
+        else:
+            pineapple_duplicate["matched_field"] = "unknown"
+            
+        if not settings.IS_PRODUCTION:
+            logger.warning(f"🚫 [DEV] [{request_id}] DUPLICATE FOUND IN PINEAPPLE SYSTEM!")
+            
+        return pineapple_duplicate
 
+    if not settings.IS_PRODUCTION:
+        logger.info(f"✅ [DEV] [{request_id}] No duplicates found in database or Pineapple")
+        
     return None
 
 

@@ -211,11 +211,11 @@
                                     </div>
                                     <div class="info-row">
                                         <div class="info-label">Email Address</div>
-                                        <div class="info-value">📧 {{ transfer.customer_info.email }}</div>
+                                        <div class="info-value">📧 {{ transfer.customer_info.email or "N/A" }}</div>
                                     </div>
                                     <div class="info-row">
                                         <div class="info-label">Contact Number</div>
-                                        <div class="info-value">📱 {{ transfer.customer_info.contact_number }}</div>
+                                        <div class="info-value">📱 {{ transfer.customer_info.contact_number or "N/A" }}</div>
                                     </div>
                                     <div class="info-row">
                                         <div class="info-label">ID Number</div>
@@ -255,12 +255,12 @@
                                 <div style="padding: 24px;">
                                     <div class="info-row">
                                         <div class="info-label">Agent Email</div>
-                                        <div class="info-value" style="font-weight: 600; color: #667eea;">{{ transfer.agent_info.agent_email }}</div>
+                                        <div class="info-value" style="font-weight: 600; color: #667eea;">{{ transfer.agent_info.agent_email or "N/A" }}</div>
                                     </div>
                                     <div class="info-row">
                                         <div class="info-label">Branch Name</div>
                                         <div class="info-value">
-                                            <span class="status-badge" style="padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 500;">{{ transfer.agent_info.branch_name }}</span>
+                                            <span class="status-badge" style="padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 500;">{{ transfer.agent_info.branch_name or "N/A" }}</span>
                                         </div>
                                     </div>
                                 </div>
