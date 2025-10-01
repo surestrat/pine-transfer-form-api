@@ -59,8 +59,8 @@ async def create_transfer(
         matched_field = existing_transfer.get("matched_field", "ID number")
         
         # Format the submission date
-        created_at = existing_transfer.get("$createdAt", "")
-        transfer_id = existing_transfer.get("$id", "unknown")
+        created_at = existing_transfer.get("created_at", "")
+        transfer_id = existing_transfer.get("id", "unknown")
 
         if not settings.IS_PRODUCTION:
             logger.warning(f"🚫 [DEV] [REQUEST-{request_id}] DUPLICATE DETECTED!")
@@ -86,10 +86,8 @@ async def create_transfer(
         logger.info(f"💾 [DEV] [REQUEST-{request_id}] Storing transfer request in database...")
     
     try:
-        doc_id = transfer.customer_info.quote_id or ""
-        await store_transfer_request(
-            collection_type="transfer", document_id=doc_id, transfer_data=transfer
-        )
+        created_doc = store_transfer_request(transfer_data=transfer)
+        doc_id = created_doc.get("id") if created_doc else None
         if not settings.IS_PRODUCTION:
             logger.info(f"✅ [DEV] [REQUEST-{request_id}] Transfer stored successfully with doc_id: {doc_id}")
     except Exception as e:
@@ -136,7 +134,8 @@ async def create_transfer(
             logger.info(f"📝 [DEV] [REQUEST-{request_id}] Redirect URL: {transfer_response.redirect_url}")
         
         # Store the transfer response
-        await update_transfer_response("transfer", doc_id, transfer_response)
+        if doc_id:
+            update_transfer_response(doc_id, transfer_response)
         
         if not settings.IS_PRODUCTION:
             logger.info(f"💾 [DEV] [REQUEST-{request_id}] Transfer response stored in database")

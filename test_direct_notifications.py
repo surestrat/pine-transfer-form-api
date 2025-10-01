@@ -7,6 +7,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from datetime import date
 from app.services.email import EmailService
 from app.schemas.quote import QuoteRequest, Vehicle, Address, RegularDriver
 from app.schemas.transfer import InTransferRequest, CustomerInfo, AgentInfo
@@ -46,8 +47,8 @@ async def test_quote_notification():
                     relationToPolicyHolder="Self",
                     emailAddress="driver@example.com",
                     mobileNumber="0712345678",
-                    idNumber="9001011234567",
-                    dateOfBirth="1990-01-01",
+                    dateOfBirth=date(1990, 1, 1),
+                    licenseIssueDate=date(2008, 1, 1)
                     licenseIssueDate="2008-01-01"
                 )
             )

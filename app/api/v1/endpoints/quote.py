@@ -43,36 +43,18 @@ async def create_quote(quote: QuoteRequest, background_tasks: BackgroundTasks):
     logger.info(f"Received quote request: {quote.model_dump(mode='json')}")
     
     # Store the quote request
-    doc_id = quote.externalReferenceId
     if not settings.IS_PRODUCTION:
-        logger.info(f"💾 [DEV] [REQUEST-{request_id}] Storing quote request with doc_id: {doc_id}")
+        logger.info(f"💾 [DEV] [REQUEST-{request_id}] Storing quote request")
     
     try:
-        try:
-            await store_quote_request("quote", doc_id, quote)
-            logger.info(f"Stored quote request with doc_id: {doc_id}")
-            if not settings.IS_PRODUCTION:
-                logger.info(f"✅ [DEV] [REQUEST-{request_id}] Quote stored successfully")
-        except Exception as e:
-            # If duplicate ID error, use a unique ID
-            if "already exists" in str(e):
-                from app.utils.appwrite import safe_uuid
-                doc_id = safe_uuid()
-                if not settings.IS_PRODUCTION:
-                    logger.warning(f"⚠️ [DEV] [REQUEST-{request_id}] Duplicate doc_id, using unique ID: {doc_id}")
-                logger.warning(f"Duplicate doc_id detected, using unique ID: {doc_id}")
-                await store_quote_request("quote", doc_id, quote)
-                logger.info(f"Stored quote request with unique doc_id: {doc_id}")
-                if not settings.IS_PRODUCTION:
-                    logger.info(f"✅ [DEV] [REQUEST-{request_id}] Quote stored with unique ID")
-            else:
-                if not settings.IS_PRODUCTION:
-                    logger.error(f"❌ [DEV] [REQUEST-{request_id}] Failed to store quote: {str(e)}")
-                logger.error(f"Failed to store quote: {str(e)}")
-                raise QuoteStorageError(str(e))
+        created_doc = store_quote_request(quote)
+        doc_id = created_doc.get("id") if created_doc else None
+        logger.info(f"Stored quote request with doc_id: {doc_id}")
+        if not settings.IS_PRODUCTION:
+            logger.info(f"✅ [DEV] [REQUEST-{request_id}] Quote stored successfully with ID: {doc_id}")
     except Exception as e:
         if not settings.IS_PRODUCTION:
-            logger.error(f"❌ [DEV] [REQUEST-{request_id}] Final storage error: {str(e)}")
+            logger.error(f"❌ [DEV] [REQUEST-{request_id}] Failed to store quote: {str(e)}")
         logger.error(f"Failed to store quote: {str(e)}")
         raise QuoteStorageError(str(e))
 
@@ -178,8 +160,9 @@ async def create_quote(quote: QuoteRequest, background_tasks: BackgroundTasks):
         if not settings.IS_PRODUCTION:
             logger.info(f"💾 [DEV] [REQUEST-{request_id}] Storing quote response...")
         
-        await update_quote_response("quote", doc_id, quote_response)
-        logger.info(f"Stored quote response for doc_id: {doc_id}")
+        if doc_id:
+            update_quote_response(doc_id, quote_response)
+            logger.info(f"Stored quote response for doc_id: {doc_id}")
         
         if not settings.IS_PRODUCTION:
             logger.info(f"✅ [DEV] [REQUEST-{request_id}] Quote response stored successfully")
@@ -262,8 +245,18 @@ async def get_quote(quote_id: str):
         logger.info(f"🔍 [DEV] [GET-QUOTE] Retrieving quote ID: {quote_id}")
     
     try:
-        # Retrieve quote from database
-        quote_document = await get_quote_by_id(quote_id)
+        # Retrieve quote from database (convert string quote_id to int)
+        try:
+            quote_id_int = int(quote_id)
+        except ValueError:
+            if not settings.IS_PRODUCTION:
+                logger.warning(f"❌ [DEV] [GET-QUOTE] Invalid quote ID format: {quote_id}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid quote ID format: {quote_id}"
+            )
+        
+        quote_document = get_quote_by_id(quote_id_int)
         
         if not quote_document:
             if not settings.IS_PRODUCTION:
@@ -277,40 +270,24 @@ async def get_quote(quote_id: str):
             logger.info(f"✅ [DEV] [GET-QUOTE] Quote found: {quote_id}")
             logger.info(f"📊 [DEV] [GET-QUOTE] Status: {quote_document.get('status', 'UNKNOWN')}")
         
-        # Handle vehicles field - it's stored as JSON strings in Appwrite
+        # Handle vehicles field - stored as JSONB in Supabase (already as dict/list)
         vehicles_data = quote_document.get("vehicles", [])
-        processed_vehicles = []
+        processed_vehicles = vehicles_data if isinstance(vehicles_data, list) else []
         
-        if vehicles_data:
-            import json
-            for vehicle_str in vehicles_data:
-                if isinstance(vehicle_str, str):
-                    try:
-                        # Parse JSON string back to dict
-                        vehicle_dict = json.loads(vehicle_str)
-                        processed_vehicles.append(vehicle_dict)
-                    except json.JSONDecodeError as e:
-                        logger.warning(f"Failed to parse vehicle JSON: {vehicle_str}. Error: {e}")
-                        # Keep as string if parsing fails
-                        processed_vehicles.append(vehicle_str)
-                else:
-                    # Already a dict/object
-                    processed_vehicles.append(vehicle_str)
-        
-        # Build response using Appwrite document structure
+        # Build response using Supabase document structure
         quote_response = QuoteRetrievalResponse(
-            id=quote_document.get("$id", quote_id),
+            id=str(quote_document.get("id", quote_id)),
             source=quote_document.get("source", ""),
-            internalReference=quote_document.get("internalReference", ""),
+            internalReference=quote_document.get("internal_reference", ""),
             status=quote_document.get("status", "UNKNOWN"),
             vehicles=processed_vehicles,
             premium=quote_document.get("premium"),
             excess=quote_document.get("excess"),
-            quoteId=quote_document.get("quoteId"),
-            agentEmail=quote_document.get("agentEmail"),
-            agentBranch=quote_document.get("agentBranch"),
-            created_at=quote_document.get("$createdAt"),
-            updated_at=quote_document.get("$updatedAt"),
+            quoteId=quote_document.get("quote_id"),
+            agentEmail=quote_document.get("agent_email"),
+            agentBranch=quote_document.get("agent_branch"),
+            created_at=quote_document.get("created_at"),
+            updated_at=quote_document.get("updated_at"),
         )
         
         if not settings.IS_PRODUCTION:

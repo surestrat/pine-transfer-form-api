@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any
 
 from uuid import uuid4
 
-from app.utils.appwrite import AppwriteService
+from app.utils.supabase import supabase_client
 
 from config.settings import settings
 
@@ -17,8 +17,8 @@ from app.utils.rich_logger import get_rich_logger
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-logger = get_rich_logger("Surestrat -> Pineapple -> API {appwrite}")
-db = AppwriteService()
+logger = get_rich_logger("Surestrat -> Pineapple -> API {supabase}")
+db = supabase_client
 
 
 def safe_uuid():
@@ -51,37 +51,15 @@ async def check_existing_transfer_by_id_number(
 
         logger.info(f"[{request_id}] Checking for existing transfer with ID number: {normalized_id}")
 
-        # Use Appwrite's list_documents to search for existing transfers
-        # Note: Appwrite Python SDK has limitations with Query.equal, so we'll filter in Python
-        transfers = (
-            db.list_documents(
-                collection_type="transfer",
-                fields=None,
-            )
-            or []
-        )
+        # Use Supabase to search for existing transfers
+        existing_transfer = db.check_duplicate_transfer(id_number, "")
 
-        # Filter transfers by normalized ID number
-        existing_transfers = [
-            transfer
-            for transfer in transfers
-            if isinstance(transfer, dict)
-            and transfer.get("id_number", "").replace(" ", "").replace("-", "").strip() == normalized_id
-        ]
-
-        if existing_transfers:
-            # Return the most recent transfer
-            most_recent = sorted(
-                existing_transfers,
-                key=lambda x: x.get("$createdAt", ""),
-                reverse=True
-            )[0]
-
+        if existing_transfer:
             if not settings.IS_PRODUCTION:
-                logger.info(f"✅ [DEV] [{request_id}] Found existing transfer by ID - Transfer ID: {most_recent.get('$id')}")
+                logger.info(f"✅ [DEV] [{request_id}] Found existing transfer by ID - Transfer ID: {existing_transfer.get('id')}")
 
-            logger.info(f"[{request_id}] Found existing transfer with ID {normalized_id}: {most_recent.get('$id')}")
-            return most_recent
+            logger.info(f"[{request_id}] Found existing transfer with ID {normalized_id}: {existing_transfer.get('id')}")
+            return existing_transfer
 
         if not settings.IS_PRODUCTION:
             logger.info(f"✅ [DEV] [{request_id}] No duplicate found by ID number")
@@ -122,36 +100,15 @@ async def check_existing_transfer_by_contact_number(
 
         logger.info(f"[{request_id}] Checking for existing transfer with contact number: {normalized_contact}")
 
-        # Use Appwrite's list_documents to search for existing transfers
-        transfers = (
-            db.list_documents(
-                collection_type="transfer",
-                fields=None,
-            )
-            or []
-        )
+        # Use Supabase to search for existing transfers
+        existing_transfer = db.check_duplicate_transfer("", contact_number)
 
-        # Filter transfers by normalized contact number
-        existing_transfers = [
-            transfer
-            for transfer in transfers
-            if isinstance(transfer, dict)
-            and transfer.get("contact_number", "").replace(" ", "").replace("-", "").replace("+", "").strip() == normalized_contact
-        ]
-
-        if existing_transfers:
-            # Return the most recent transfer
-            most_recent = sorted(
-                existing_transfers,
-                key=lambda x: x.get("$createdAt", ""),
-                reverse=True
-            )[0]
-
+        if existing_transfer:
             if not settings.IS_PRODUCTION:
-                logger.info(f"✅ [DEV] [{request_id}] Found existing transfer by contact - Transfer ID: {most_recent.get('$id')}")
+                logger.info(f"✅ [DEV] [{request_id}] Found existing transfer by contact - Transfer ID: {existing_transfer.get('id')}")
 
-            logger.info(f"[{request_id}] Found existing transfer with contact {normalized_contact}: {most_recent.get('$id')}")
-            return most_recent
+            logger.info(f"[{request_id}] Found existing transfer with contact {normalized_contact}: {existing_transfer.get('id')}")
+            return existing_transfer
 
         if not settings.IS_PRODUCTION:
             logger.info(f"✅ [DEV] [{request_id}] No duplicate found by contact number")
@@ -268,8 +225,8 @@ async def check_existing_transfer(
     if pineapple_duplicate:
         # Format Pineapple response to match our expected structure
         pineapple_duplicate["source"] = "pineapple"
-        pineapple_duplicate["$id"] = pineapple_duplicate.get("lead_id", "unknown")
-        pineapple_duplicate["$createdAt"] = pineapple_duplicate.get("created_at", "unknown")
+        pineapple_duplicate["id"] = pineapple_duplicate.get("lead_id", "unknown")
+        pineapple_duplicate["created_at"] = pineapple_duplicate.get("created_at", "unknown")
         
         # Determine which field matched
         if id_number and pineapple_duplicate.get("id_number") == id_number:
@@ -290,13 +247,11 @@ async def check_existing_transfer(
     return None
 
 
-async def store_transfer_request(
-    collection_type: str,
-    document_id: str,
+def store_transfer_request(
     transfer_data: InTransferRequest,
 ):
     try:
-        update_data = {
+        transfer_record = {
             "first_name": transfer_data.customer_info.first_name,
             "last_name": transfer_data.customer_info.last_name,
             "email": transfer_data.customer_info.email or "",
@@ -306,13 +261,11 @@ async def store_transfer_request(
             "agent_email": transfer_data.agent_info.agent_email,
             "agent_name": transfer_data.agent_info.agent_email,  # Map email to name for backward compatibility
             "branch_name": transfer_data.agent_info.branch_name,
-            "created_at": datetime.now(ZoneInfo("Africa/Johannesburg")).isoformat(),
-            "updated_at": datetime.now(ZoneInfo("Africa/Johannesburg")).isoformat(),
         }
-        document_id = document_id or safe_uuid()
 
         doc = db.create_document(
-            data=update_data, collection_type=collection_type, document_id=document_id
+            table=settings.TRANSFERS_TABLE,
+            data=transfer_record
         )
         return doc
 
@@ -321,8 +274,8 @@ async def store_transfer_request(
         raise
 
 
-async def update_transfer_response(
-    collection_type: str, document_id: str, response_data: TransferResponse
+def update_transfer_response(
+    document_id: int, response_data: TransferResponse
 ):
     try:
         update_data = {
@@ -331,7 +284,9 @@ async def update_transfer_response(
         }
 
         doc = db.update_document(
-            document_id=document_id, data=update_data, collection_type=collection_type
+            table=settings.TRANSFERS_TABLE,
+            document_id=document_id,
+            data=update_data
         )
         return doc
     except Exception as e:

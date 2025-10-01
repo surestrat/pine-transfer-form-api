@@ -1,5 +1,6 @@
 import httpx
 import datetime
+import json
 
 from uuid import uuid4
 
@@ -7,16 +8,14 @@ from config.settings import settings
 
 from typing import Optional, Dict, Any
 
-from app.utils.appwrite import AppwriteService
-
-from appwrite.exception import AppwriteException
+from app.utils.supabase import supabase_client
 
 from app.schemas.quote import QuoteRequest, QuoteResponse
 
 from app.utils.rich_logger import get_rich_logger
 
-logger = get_rich_logger("Surestrat -> Pineapple -> API {appwrite}")
-db = AppwriteService()
+logger = get_rich_logger("Surestrat -> Pineapple -> API {supabase}")
+db = supabase_client
 
 
 def safe_uuid():
@@ -34,60 +33,59 @@ def clean_dict(d):
         return d
 
 
-async def store_quote_request(
-    collection_type: str, document_id: str, quote_data: QuoteRequest
+def store_quote_request(
+    quote_data: QuoteRequest
 ):
     try:
-        import json
-
-        # NOTE: The 'vehicles' field is stored as JSON strings in Appwrite.
-        # Convert vehicles to JSON strings for storage
-        quote_data_dict = {
+        # NOTE: In Supabase, vehicles are stored as JSONB (not JSON strings)
+        # Convert vehicles to JSON objects for storage
+        quote_record = {
             "source": quote_data.source,
-            "internalReference": quote_data.externalReferenceId,
-            # Store vehicles as JSON strings (not objects)
+            "internal_reference": quote_data.externalReferenceId,
             "status": "PENDING",
-            "vehicles": [json.dumps(vehicle.model_dump(mode="json")) for vehicle in quote_data.vehicles],
+            # Store vehicles as JSON array (Supabase will handle JSONB conversion)
+            "vehicles": [vehicle.model_dump(mode="json") for vehicle in quote_data.vehicles],
             # Include agent information if provided
-            "agentEmail": quote_data.agentEmail,
-            "agentBranch": quote_data.agentBranch,
-            # Add created_at timestamp to satisfy Appwrite requirements
-            "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "agent_email": quote_data.agentEmail,
+            "agent_branch": quote_data.agentBranch,
         }
-        # Clean None values from payload (not strictly needed for string, but safe)
-        flattened_data = clean_dict({**quote_data_dict})
+        # Clean None values from payload
+        flattened_data = clean_dict(quote_record)
         # Ensure we're passing a dict to create_document
         if not isinstance(flattened_data, dict):
             raise ValueError("Expected a dictionary after cleaning data")
         document = db.create_document(
+            table=settings.QUOTES_TABLE,
             data=flattened_data,
-            collection_type=collection_type,
-            document_id=document_id,
         )
-        logger.info(f"Appwrite create_document response: {document}")
+        logger.info(f"Supabase create_document response: {document}")
         if isinstance(document, dict) and "error" in document:
-            raise ValueError(f"Appwrite error: {document['error']}")
+            raise ValueError(f"Supabase error: {document['error']}")
         return document
-    except AppwriteException as e:
-        raise ValueError(f"Failed to store {collection_type} request: {str(e)}")
+    except Exception as e:
+        raise ValueError(f"Failed to store quote request: {str(e)}")
 
 
-async def update_quote_response(
-    collection_type: str, document_id: str, response_data: QuoteResponse
+def update_quote_response(
+    document_id: int, response_data: QuoteResponse
 ):
     try:
-        # Convert premium and excess to strings to match Appwrite schema
+        # Convert premium and excess to strings to match schema
         update_data = {
-            "premium": str(response_data.premium),
-            "excess": str(response_data.excess)
+            "premium": str(response_data.premium) if response_data.premium else None,
+            "excess": str(response_data.excess) if response_data.excess else None,
+            "status": "COMPLETED"
         }
         
-        # Add quoteId if available
-        if response_data.quoteId:
-            update_data["quoteId"] = response_data.quoteId
+        # Note: quote_id column is optional - only update if available
+        # Do not include it in the update if not present to avoid schema errors
+        # if response_data.quoteId:
+        #     update_data["quote_id"] = response_data.quoteId
             
         doc = db.update_document(
-            document_id=document_id, data=update_data, collection_type=collection_type
+            table=settings.QUOTES_TABLE,
+            document_id=document_id,
+            data=update_data
         )
         return doc
     except Exception as e:
@@ -95,64 +93,7 @@ async def update_quote_response(
         raise
 
 
-async def find_quote_by_phone(
-    phone_number: str, request_id: Optional[str] = None
-) -> Optional[Dict[str, Any]]:
-    """
-    Search for a quote by phone number in the quote collection.
-    Args:
-        phone_number: The phone number to search for
-        request_id: Optional ID for logging/tracking
-    Returns:
-        Optional[Dict[str, Any]]: The quote document if found, None otherwise
-    """
-    try:
-        if not phone_number:
-            logger.warning(
-                f"[{request_id}] Empty phone number provided for quote search"
-            )
-            return None
-
-        normalized_phone = (
-            phone_number.replace(" ", "").replace("-", "").replace("+", "")
-        )
-
-        # Use Query.equal directly in the queries list
-        quotes = (
-            db.list_documents(
-                collection_type="quote",
-                fields=None,
-            )
-            or []
-        )  # Default to empty list if None is returned
-        # Filter in Python since Appwrite Python SDK does not support Query.equal in list_documents directly
-        filtered_quotes = [
-            q
-            for q in quotes
-            if isinstance(q, dict)
-            and (q.get("contactNumber", "") or "")
-            .replace(" ", "")
-            .replace("-", "")
-            .replace("+", "")
-            == normalized_phone
-        ]
-        if not filtered_quotes:
-            logger.info(
-                f"[request_id] No quotes found for phone number {normalized_phone}"
-            )
-            return None
-        # Return the most recent quote document
-        newest_quote = sorted(
-            filtered_quotes, key=lambda x: x.get("$createdAt", ""), reverse=True
-        )[0]
-        logger.info(f"[{request_id}] Found quote with ID: {newest_quote.get('$id')}")
-        return newest_quote
-    except Exception as e:
-        logger.error(f"[{request_id}] Error finding quote by phone: {str(e)}")
-        return None
-
-
-async def get_quote_by_id(quote_id: str) -> Optional[Dict[str, Any]]:
+def get_quote_by_id(quote_id: int) -> Optional[Dict[str, Any]]:
     """
     Retrieve a quote by its ID from the quote collection.
     Args:
@@ -166,34 +107,16 @@ async def get_quote_by_id(quote_id: str) -> Optional[Dict[str, Any]]:
             return None
 
         # Get the document directly by ID
-        result = db.get_document_by_id(
-            document_id=quote_id,
-            collection_type="quote"
+        document = db.get_document(
+            table=settings.QUOTES_TABLE,
+            document_id=quote_id
         )
         
-        # Check if result contains error
-        if isinstance(result, dict) and "error" in result:
-            error_msg = result["error"]
-            # Check if it's a 404 error (document not found)
-            if "404" in str(error_msg) or "Document with the requested ID could not be found" in str(error_msg):
-                logger.info(f"Quote not found with ID: {quote_id}")
-                return None
-            else:
-                logger.error(f"Appwrite error retrieving quote {quote_id}: {error_msg}")
-                raise Exception(f"Database error: {error_msg}")
-        
-        # Extract the actual document from the "data" field
-        if isinstance(result, dict) and "data" in result:
-            document = result["data"]
-            # Ensure document is a dict before returning
-            if isinstance(document, dict):
-                logger.info(f"Retrieved quote with ID: {quote_id}")
-                return document
-            else:
-                logger.warning(f"Document data is not a dict: {type(document)}")
-                return None
+        if document:
+            logger.info(f"Retrieved quote with ID: {quote_id}")
+            return document
         else:
-            logger.warning(f"Unexpected result format from get_document_by_id: {result}")
+            logger.info(f"Quote not found with ID: {quote_id}")
             return None
             
     except Exception as e:

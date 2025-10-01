@@ -62,13 +62,13 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = int(os.getenv("PORT", 4000))
 
-    # Appwrite settings
-    APPWRITE_ENDPOINT: str | None = os.getenv("APPWRITE_ENDPOINT")
-    APPWRITE_PROJECT_ID: str | None = os.getenv("APPWRITE_PROJECT_ID")
-    APPWRITE_API_KEY: str | None = os.getenv("APPWRITE_API_KEY")
-    DATABASE_ID: str | None = os.getenv("DATABASE_ID")
-    QUOTE_COL_ID: str | None = os.getenv("QUOTE_COL_ID")
-    TRANSFER_COL_ID: str | None = os.getenv("TRANSFER_COL_ID")
+    # Supabase settings
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+    SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", "")
+    
+    # Table names
+    QUOTES_TABLE: str = os.getenv("QUOTES_TABLE", "quotes")
+    TRANSFERS_TABLE: str = os.getenv("TRANSFERS_TABLE", "leads")
 
     # Email settings
     SMTP_SERVER: str | None = os.getenv("SMTP_SERVER")

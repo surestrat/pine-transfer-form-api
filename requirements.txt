@@ -1,4 +1,4 @@
-appwrite==6.1.0
+supabase==2.8.1
 fastapi
 pydantic
 uvicorn
