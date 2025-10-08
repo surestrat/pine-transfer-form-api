@@ -147,19 +147,19 @@ async def create_transfer(
         raise TransferResponseError(str(e))
 
     # Prepare email notification as background task
-    if not settings.IS_PRODUCTION:
-        logger.info(f"📧 [DEV] [REQUEST-{request_id}] Queuing email notification...")
+    logger.info(f"📧 [REQUEST-{request_id}] Queuing email notification...")
     
     # Check if transfer notifications are enabled
     if settings.SEND_TRANSFER_NOTIFICATIONS:
         # Prepare agent email for CC if available
         agent_email = transfer.agent_info.agent_email if transfer.agent_info.agent_email else None
         
-        if not settings.IS_PRODUCTION and agent_email:
-            logger.info(f"📧 [DEV] [REQUEST-{request_id}] Agent will be CC'd: {agent_email}")
+        logger.info(f"📧 [REQUEST-{request_id}] Agent CC: {agent_email if agent_email else 'None'}")
         
         # Add BCC if configured
         bcc_emails = settings.ADMIN_BCC_EMAILS if hasattr(settings, 'ADMIN_BCC_EMAILS') and settings.ADMIN_BCC_EMAILS else None
+        
+        logger.info(f"📧 [REQUEST-{request_id}] Email recipients - TO: {settings.ADMIN_EMAILS}, BCC: {bcc_emails}")
         
         background_tasks.add_task(
             email_service.send_transfer_email,
@@ -171,11 +171,9 @@ async def create_transfer(
             bcc=bcc_emails
         )
         
-        if not settings.IS_PRODUCTION:
-            logger.info(f"📧 [DEV] [REQUEST-{request_id}] Transfer notification email queued")
+        logger.info(f"📧 [REQUEST-{request_id}] Transfer notification email queued successfully")
     else:
-        if not settings.IS_PRODUCTION:
-            logger.info(f"📧 [DEV] [REQUEST-{request_id}] Transfer notifications disabled in settings")
+        logger.warning(f"📧 [REQUEST-{request_id}] Transfer notifications DISABLED in settings")
 
     if not settings.IS_PRODUCTION:
         logger.info(f"🎉 [DEV] [REQUEST-{request_id}] Transfer completed successfully!")

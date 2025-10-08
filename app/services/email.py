@@ -215,6 +215,8 @@ class EmailService:
     ) -> bool:
         """Send an HTML email with plain text fallback using a Jinja2 template"""
         try:
+            self.logger.info(f"📧 Starting email send: subject='{subject}', template='{template_name}'")
+            
             # Render the HTML body from template
             html_body = self.render_template(template_name, template_context or {})
 
@@ -227,8 +229,10 @@ class EmailService:
             all_recipients = to_list + cc_list + bcc_list
 
             if not to_list:
-                self.logger.error("No valid primary recipients found")
+                self.logger.error("❌ No valid primary recipients found")
                 return False
+
+            self.logger.info(f"📧 Recipients: to={to_list}, cc={cc_list}, bcc={bcc_list}")
 
             # Prepare the complete MIME message
             msg = self._prepare_message(
@@ -236,11 +240,11 @@ class EmailService:
             )
 
             if not self.smtp_server:
-                self.logger.error("SMTP server configuration is missing")
+                self.logger.error("❌ SMTP server configuration is missing")
                 return False
 
             self.logger.info(
-                f"Connecting to SMTP server {self.smtp_server}:{self.smtp_port} as {self.smtp_username}"
+                f"📧 Connecting to SMTP server {self.smtp_server}:{self.smtp_port} as {self.smtp_username}"
             )
             # Connect to SMTP server and send the message
             with smtplib.SMTP_SSL(
@@ -252,29 +256,54 @@ class EmailService:
                         and self.smtp_password is not None
                     ):
                         self.logger.info(
-                            f"Attempting SMTP login for user: {self.smtp_username}"
+                            f"📧 Attempting SMTP login for user: {self.smtp_username}"
                         )
                         server.login(self.smtp_username, self.smtp_password)
-                        self.logger.info("SMTP login successful")
+                        self.logger.info("✅ SMTP login successful")
                     else:
-                        self.logger.error("SMTP username or password is missing")
+                        self.logger.error("❌ SMTP username or password is missing")
                         return False
+                except smtplib.SMTPAuthenticationError as e:
+                    self.logger.error(f"❌ SMTP authentication failed: {str(e)}")
+                    return False
+                except smtplib.SMTPConnectError as e:
+                    self.logger.error(f"❌ SMTP connection failed: {str(e)}")
+                    return False
                 except Exception as e:
-                    self.logger.error(f"SMTP login failed: {str(e)}")
+                    self.logger.error(f"❌ SMTP login failed: {str(e)}")
                     return False
 
-                # Use sendmail instead of send_message for better control
-                server.sendmail(
-                    from_addr=self.smtp_username,
-                    to_addrs=all_recipients,
-                    msg=msg.as_string(),
-                )
+                try:
+                    # Use sendmail instead of send_message for better control
+                    self.logger.info(f"📧 Sending message to {len(all_recipients)} recipients")
+                    rejected = server.sendmail(
+                        from_addr=self.smtp_username,
+                        to_addrs=all_recipients,
+                        msg=msg.as_string(),
+                    )
+                    
+                    if rejected:
+                        self.logger.warning(f"⚠️ Some recipients were rejected: {rejected}")
+                    else:
+                        self.logger.info("✅ Message sent to all recipients")
+                        
+                except smtplib.SMTPRecipientsRefused as e:
+                    self.logger.error(f"❌ All recipients refused: {str(e)}")
+                    return False
+                except smtplib.SMTPDataError as e:
+                    self.logger.error(f"❌ SMTP data error: {str(e)}")
+                    return False
+                except Exception as e:
+                    self.logger.error(f"❌ Failed to send message via SMTP: {str(e)}")
+                    return False
 
-            self.logger.info(f"Email sent successfully to {', '.join(to_list)}")
+            self.logger.info(f"✅ Email sent successfully to {', '.join(to_list)}")
             return True
 
         except Exception as e:
-            self.logger.error(f"Failed to send email: {str(e)}")
+            self.logger.error(f"❌ Failed to send email (general error): {str(e)}")
+            import traceback
+            self.logger.error(f"❌ Traceback: {traceback.format_exc()}")
             return False
 
     async def send_transfer_email(
@@ -287,28 +316,41 @@ class EmailService:
         bcc: Optional[Union[List[str], str]] = None,
     ) -> bool:
         """Send a transfer notification email"""
-        subject = (
-            f"Lead Transfer Success: {transfer_data.customer_info.first_name} {transfer_data.customer_info.last_name}"
-            if success
-            else f"Lead Transfer Failed: {transfer_data.customer_info.first_name} {transfer_data.customer_info.last_name}"
-        )
-        status_line = (
-            "✅ New Report"
-            if success
-            else f"❌ Lead transfer failed: {error_message or 'Unknown error'}"
-        )
-        template_context = {
-            "transfer": transfer_data,
-            "status_line": status_line,
-            "success": success,
-            "error_message": error_message,
-            "now": get_sast_now(),
-        }
-        return self.send_email(
-            subject=subject,
-            recipients=recipient,
-            template_name="transfer_notification.html",
-            template_context=template_context,
-            cc=cc,
-            bcc=bcc,
-        )
+        try:
+            subject = (
+                f"Lead Transfer Success: {transfer_data.customer_info.first_name} {transfer_data.customer_info.last_name}"
+                if success
+                else f"Lead Transfer Failed: {transfer_data.customer_info.first_name} {transfer_data.customer_info.last_name}"
+            )
+            status_line = (
+                "✅ New Report"
+                if success
+                else f"❌ Lead transfer failed: {error_message or 'Unknown error'}"
+            )
+            template_context = {
+                "transfer": transfer_data,
+                "status_line": status_line,
+                "success": success,
+                "error_message": error_message,
+                "now": get_sast_now(),
+            }
+            
+            self.logger.info(f"📧 Sending transfer email to: {recipient}")
+            result = self.send_email(
+                subject=subject,
+                recipients=recipient,
+                template_name="transfer_notification.html",
+                template_context=template_context,
+                cc=cc,
+                bcc=bcc,
+            )
+            
+            if result:
+                self.logger.info(f"✅ Transfer email sent successfully")
+            else:
+                self.logger.error(f"❌ Transfer email failed to send")
+                
+            return result
+        except Exception as e:
+            self.logger.error(f"❌ Transfer email exception: {str(e)}")
+            return False

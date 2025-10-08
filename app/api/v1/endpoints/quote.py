@@ -176,19 +176,19 @@ async def create_quote(quote: QuoteRequest, background_tasks: BackgroundTasks):
         logger.error(f"Failed to parse or store Pineapple response: {str(e)}")
         raise QuoteResponseError(str(e))
 
-    if not settings.IS_PRODUCTION:
-        logger.info(f"📧 [DEV] [REQUEST-{request_id}] Queuing email notification...")
+    logger.info(f"📧 [REQUEST-{request_id}] Queuing email notification...")
 
     # Check if quote notifications are enabled
     if settings.SEND_QUOTE_NOTIFICATIONS:
         # Prepare agent email for CC if available
         agent_email = quote.agentEmail if quote.agentEmail else None
         
-        if not settings.IS_PRODUCTION and agent_email:
-            logger.info(f"📧 [DEV] [REQUEST-{request_id}] Agent will be CC'd: {agent_email}")
+        logger.info(f"📧 [REQUEST-{request_id}] Agent CC: {agent_email if agent_email else 'None'}")
         
         # Add BCC if configured
         bcc_emails = settings.ADMIN_BCC_EMAILS if hasattr(settings, 'ADMIN_BCC_EMAILS') and settings.ADMIN_BCC_EMAILS else None
+        
+        logger.info(f"📧 [REQUEST-{request_id}] Email recipients - TO: {settings.ADMIN_EMAILS}, BCC: {bcc_emails}")
         
         background_tasks.add_task(
             email_service.send_email,
@@ -207,15 +207,11 @@ async def create_quote(quote: QuoteRequest, background_tasks: BackgroundTasks):
             bcc=bcc_emails
         )
         
-        if not settings.IS_PRODUCTION:
-            logger.info(f"📧 [DEV] [REQUEST-{request_id}] Quote notification email queued")
+        logger.info(f"📧 [REQUEST-{request_id}] Quote notification email queued successfully")
     else:
-        if not settings.IS_PRODUCTION:
-            logger.info(f"📧 [DEV] [REQUEST-{request_id}] Quote notifications disabled in settings")
+        logger.warning(f"📧 [REQUEST-{request_id}] Quote notifications DISABLED in settings")
 
-    if not settings.IS_PRODUCTION:
-        logger.info(f"🎉 [DEV] [REQUEST-{request_id}] Quote completed successfully!")
-        logger.info(f"🎉 [DEV] [REQUEST-{request_id}] Final premium: {quote_response.premium}")
+    logger.info(f"🎉 [REQUEST-{request_id}] Quote completed successfully - Premium: {quote_response.premium}")
 
     return quote_response
 

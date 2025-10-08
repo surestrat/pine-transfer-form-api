@@ -21,51 +21,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger("pine-api")
 
-
-# Parse ALLOWED_ORIGINS string into a list
-def parse_allowed_origins(origins_str: str):
-    """Parse comma-separated origins string into a list."""
-    if not origins_str:
-        return ["*"]  # Default to all origins if empty
-    return [origin.strip() for origin in origins_str.split(",") if origin.strip()]
-
-
-# Use the same parsing logic from your email service
-allowed_origins = parse_allowed_origins(settings.ALLOWED_ORIGINS)
-logger.info(f"Starting with CORS origins: {allowed_origins}")
-
-
-class CORSMiddlewareManual(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        # Handle OPTIONS requests directly
-        if request.method == "OPTIONS":
-            logger.info(f"Handling OPTIONS preflight request to {request.url.path}")
-            response = Response(status_code=200)
-
-            # Get origin from request headers
-            origin = request.headers.get("origin", "")
-            logger.info(f"Request origin: {origin}")
-
-            # Check if origin is in allowed origins (same as standard middleware)
-            allowed_origin = "*" if "*" in allowed_origins else (origin if origin in allowed_origins else "null")
-            
-            # Add CORS headers using consistent origin policy
-            response.headers["Access-Control-Allow-Origin"] = allowed_origin
-            response.headers["Access-Control-Allow-Methods"] = (
-                "GET, POST, PUT, DELETE, OPTIONS"
-            )
-            response.headers["Access-Control-Allow-Headers"] = (
-                "Content-Type, Authorization, X-Requested-With, Accept, Origin"
-            )
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Max-Age"] = "86400"
-
-            logger.info(f"OPTIONS response: origin={allowed_origin}")
-            return response
-
-        response = await call_next(request)
-        return response
-
+# Simple CORS configuration - allow all origins
+logger.info("Starting with CORS enabled for all origins (*)")
 
 app = FastAPI(title="Pineapple Surestrat API")
 
@@ -75,29 +32,18 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(ValidationError, pydantic_validation_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
-# Add our custom CORS middleware first (before any routing)
-app.add_middleware(CORSMiddlewareManual)
-
-# Now add the standard CORS middleware using the parsed list
+# Simple CORS middleware - allow all origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,  # Use the parsed list
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["Content-Type"],
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=False,  # Must be False when allow_origins is ["*"]
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
 )
 
 # Include routers
 app.include_router(quote.router, prefix="/api/v1", tags=["quote"])
 app.include_router(transfer.router, prefix="/api/v1", tags=["transfer"])
-
-
-# Global OPTIONS handler
-@app.options("/{path:path}")
-async def options_handler(path: str):
-    logger.info(f"Global OPTIONS handler called for path: {path}")
-    return Response(status_code=200)
 
 
 @app.get("/")
@@ -122,10 +68,10 @@ def debug_cors():
     return {
         "success": True,
         "data": {
-            "allowed_origins_raw": settings.ALLOWED_ORIGINS,
-            "allowed_origins_parsed": allowed_origins,
+            "allowed_origins": "*",
             "api_environment": settings.ENVIRONMENT,
             "is_production": settings.IS_PRODUCTION,
+            "note": "CORS is configured to allow all origins"
         },
         "timestamp": datetime.now().isoformat()
     }
